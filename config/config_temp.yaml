@@ -1,0 +1,18 @@
+id_name:
+  0: node0
+  1: node1
+  2: node2
+  3: node3
+id_ip:
+  0: 0.0.0.0
+  1: 0.0.0.0
+  2: 0.0.0.0
+  3: 0.0.0.0
+id_p2p_port:
+  0: 9000
+  1: 9001
+  2: 9002
+  3: 9003
+log_level: 3
+max_pool: 10
+timeout: 5
