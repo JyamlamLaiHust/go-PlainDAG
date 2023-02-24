@@ -1,7 +1,6 @@
 package config
 
 import (
-	"encoding/hex"
 	"fmt"
 	"strconv"
 	"strings"
@@ -10,7 +9,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func gen_config() {
+func Gen_config() {
 	viperRead := viper.New()
 
 	// for environment variables
@@ -90,7 +89,7 @@ func gen_config() {
 
 		idPrvkeyMap[id] = privateKeyString
 
-		idPubkeyMapHex[id] = hex.EncodeToString(publicKeyString)
+		idPubkeyMapHex[id] = crypto.ConfigEncodeKey(publicKeyString)
 
 	}
 	for id, nodename := range idNameMap {
@@ -100,7 +99,8 @@ func gen_config() {
 		viperWrite := viper.New()
 		viperWrite.Set("id", id)
 		viperWrite.Set("nodename", nodename)
-		viperWrite.Set("private_key", hex.EncodeToString(idPrvkeyMap[id]))
+		viperWrite.Set("private_key", crypto.ConfigEncodeKey(idPrvkeyMap[id]))
+		viperWrite.Set("public_key", idPubkeyMapHex[id])
 		viperWrite.Set("id_public_key", idPubkeyMapHex)
 		viperWrite.Set("p2p_port", idP2PPortMap[id])
 		viperWrite.Set("ip", idIPMap[id])

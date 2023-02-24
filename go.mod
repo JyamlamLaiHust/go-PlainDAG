@@ -6,7 +6,6 @@ require (
 	github.com/hashicorp/go-hclog v1.4.0
 	github.com/hashicorp/go-msgpack v0.5.5
 	github.com/multiformats/go-multiaddr v0.8.0
-	github.com/seafooler/sign_tools v0.0.0-20230102164452-07f1c49cf416
 	github.com/spf13/viper v1.15.0
 )
 
@@ -107,8 +106,6 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
-	go.dedis.ch/fixbuf v1.0.3 // indirect
-	go.dedis.ch/kyber/v3 v3.1.0 // indirect
 	golang.org/x/crypto v0.4.0 // indirect
 	golang.org/x/sys v0.3.0 // indirect
 	golang.org/x/text v0.5.0 // indirect

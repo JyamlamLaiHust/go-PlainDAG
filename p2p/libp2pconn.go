@@ -9,7 +9,6 @@ import (
 	"log"
 	"reflect"
 	"sync"
-	"time"
 
 	"github.com/hashicorp/go-msgpack/codec"
 	"github.com/libp2p/go-libp2p"
@@ -33,12 +32,11 @@ type MsgWithSig struct {
 type NetworkDealer struct {
 	connPool     map[string]*conn
 	msgch        chan MsgWithSig
-	h            host.Host
+	H            host.Host
 	shutdown     bool
 	shutdownCh   chan struct{}
 	shutdownLock sync.Mutex
 
-	timeout time.Duration
 	// ctx               context.Context
 	// ctxCancel         context.CancelFunc
 	// ctxLock           sync.RWMutex
@@ -71,14 +69,17 @@ func makeHost(port int, prvKey crypto.PrivKey) host.Host {
 func (n *NetworkDealer) Listen() {
 	listenStream := func(s network.Stream) {
 		log.Println("Received a connection")
+
+		log.Println(s.Conn().RemotePeer().String())
 		r := bufio.NewReader(s)
 		go n.HandleConn(r)
 	}
-	n.h.SetStreamHandler(protocol.ID("PlainDAG"), listenStream)
+	n.H.SetStreamHandler(protocol.ID("PlainDAG"), listenStream)
 
 }
 
 func (n *NetworkDealer) HandleConn(r *bufio.Reader) error {
+
 	rpcType, err := r.ReadByte()
 	dec := codec.NewDecoder(r, &codec.MsgpackHandle{})
 	if err != nil {
@@ -127,8 +128,8 @@ func (n *NetworkDealer) ConnectWithMultiaddr(multi string) (*bufio.Writer, error
 	if err != nil {
 		return nil, err
 	}
-	n.h.Peerstore().AddAddr(info.ID, maddr, peerstore.PermanentAddrTTL)
-	s, err := n.h.NewStream(context.Background(), info.ID, protocol.ID("PlainDAG"))
+	n.H.Peerstore().AddAddr(info.ID, maddr, peerstore.PermanentAddrTTL)
+	s, err := n.H.NewStream(context.Background(), info.ID, protocol.ID("PlainDAG"))
 	if err != nil {
 		return nil, err
 	}
@@ -136,7 +137,7 @@ func (n *NetworkDealer) ConnectWithMultiaddr(multi string) (*bufio.Writer, error
 }
 
 func PackMultiaddr(port int, addr string, pubKey string) string {
-	return fmt.Sprintf("ip4/%s/tcp/%v/p2p/%s", addr, port, pubKey)
+	return fmt.Sprintf("/ip4/%s/tcp/%v/p2p/%s", addr, port, pubKey)
 }
 
 func (n *NetworkDealer) SendMsg(rpcType uint8, msg interface{}, sig []byte, dest string) error {
@@ -176,4 +177,22 @@ func (n *NetworkDealer) SendMsg(rpcType uint8, msg interface{}, sig []byte, dest
 		return err
 	}
 	return nil
+}
+
+func NewnetworkDealer(filepath string) (*NetworkDealer, error) {
+	c := config.Loadconfig(filepath)
+
+	h := makeHost(c.Port, c.Prvkey)
+	n := &NetworkDealer{
+		connPool:   make(map[string]*conn),
+		msgch:      make(chan MsgWithSig, 100),
+		H:          h,
+		shutdown:   false,
+		shutdownCh: make(chan struct{}),
+
+		reflectedTypesMap: make(map[uint8]reflect.Type),
+		config:            c,
+	}
+
+	return n, nil
 }

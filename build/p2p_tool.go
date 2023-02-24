@@ -329,7 +329,7 @@ func NewNetworkTransportWithConfig(
 
 // NewNetworkTransport creates a new network transport with the given dialer
 // and listener. The maxPool controls how many connections we will pool. The
-// timeout is used to apply I/O deadlines. For InstallSnapshot, we multiply
+// timeout is used to apply I/O deadlines. For InstallSnapshot, we multiply 
 // the timeout by (SnapshotSize / TimeoutScale).
 func NewNetworkTransport(
 	stream StreamLayer,

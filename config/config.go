@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -17,8 +18,8 @@ type P2pconfig struct {
 	IdnameMap map[int]string
 
 	Prvkey          crypto.PrivKey
-	Pubkey          crypto.PubKey
-	Pubkeyothersmap map[int]crypto.PubKey
+	Pubkey          string
+	Pubkeyothersmap map[int]string
 
 	IdportMap map[int]int
 	IdaddrMap map[int]string
@@ -28,10 +29,14 @@ type P2pconfig struct {
 
 func Loadconfig(filepath string) *P2pconfig {
 	// find the number index in string
+
 	var fileindex int
 	for i := 0; i < len(filepath); i++ {
 		if filepath[i] >= '0' && filepath[i] <= '9' {
-			fileindex = i
+
+			//convert byte to int
+			fileindex, _ = strconv.Atoi(string(filepath[i]))
+
 			break
 		}
 	}
@@ -45,6 +50,7 @@ func Loadconfig(filepath string) *P2pconfig {
 	viperRead.SetEnvKeyReplacer(replacer)
 
 	viperRead.SetConfigName(filepath)
+	fmt.Println(filepath)
 	viperRead.AddConfigPath("./")
 
 	err := viperRead.ReadInConfig()
@@ -79,6 +85,7 @@ func Loadconfig(filepath string) *P2pconfig {
 		}
 		if port, ok := portInterface.(int); ok {
 			idP2PPortMap[id] = port
+
 		} else {
 			panic("id_p2p_port in the config file cannot be decoded correctly")
 		}
@@ -103,56 +110,47 @@ func Loadconfig(filepath string) *P2pconfig {
 	// extract private key and public key and pubkeysmap using config
 	privkey := viperRead.GetString("private_key")
 	pubkey := viperRead.GetString("public_key")
-	pubkeyothersmap := viperRead.GetStringMap("public_key_others")
+	pubkeyothersmap := viperRead.GetStringMap("id_public_key")
 	// convert the strings obove into bytes
 	privkeybytes, err := crypto.ConfigDecodeKey(privkey)
 	if err != nil {
 		panic(err)
 	}
-	pubkeybytes, err := crypto.ConfigDecodeKey(pubkey)
-	if err != nil {
-		panic(err)
-	}
+
+	//fmt.Println(pubkeybytes)
 	// convert the bytes into private key and public key
+	pubkeysmap := make(map[int]string, nodeNumber)
 	privkeyobj, err := crypto.UnmarshalPrivateKey(privkeybytes)
 	if err != nil {
 		panic(err)
 	}
-	pubkeyobj, err := crypto.UnmarshalPublicKey(pubkeybytes)
-	if err != nil {
-		panic(err)
-	}
+
 	// convert the map into map[int]crypto.PubKey
-	pubkeyothersmapobj := make(map[int]crypto.PubKey, nodeNumber)
+
 	for idString, pubkeyothersInterface := range pubkeyothersmap {
 		if pubkeyothers, ok := pubkeyothersInterface.(string); ok {
 			id, err := strconv.Atoi(idString)
 			if err != nil {
 				panic(err)
 			}
-			pubkeyothersbytes, err := crypto.ConfigDecodeKey(pubkeyothers)
-			if err != nil {
-				panic(err)
 
-			}
-			pubkeyothersobj, err := crypto.UnmarshalPublicKey(pubkeyothersbytes)
-			if err != nil {
-				panic(err)
-			}
-			pubkeyothersmapobj[id] = pubkeyothersobj
+			pubkeysmap[id] = pubkeyothers
 		} else {
 			panic("public_key_others in the config file cannot be decoded correctly")
 		}
 	}
 
 	return &P2pconfig{
-		Ipaddress: idIPMap[fileindex],
-		Port:      idP2PPortMap[fileindex],
-		Id:        fileindex,
-		Nodename:  idNameMap[fileindex],
-		IdnameMap: idNameMap,
-		IdportMap: idP2PPortMap,
-		IdaddrMap: idIPMap,
-		Timeout:   time.Duration(viperRead.GetInt("timeout")) * time.Second,
+		Ipaddress:       idIPMap[fileindex],
+		Port:            idP2PPortMap[fileindex],
+		Id:              fileindex,
+		Nodename:        idNameMap[fileindex],
+		IdnameMap:       idNameMap,
+		IdportMap:       idP2PPortMap,
+		IdaddrMap:       idIPMap,
+		Timeout:         time.Duration(viperRead.GetInt("timeout")) * time.Second,
+		Prvkey:          privkeyobj,
+		Pubkey:          pubkey,
+		Pubkeyothersmap: pubkeysmap,
 	}
 }

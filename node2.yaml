@@ -15,11 +15,11 @@ id_p2p_port:
     2: 9002
     3: 9003
 id_public_key:
-    0: QmPQK4xeUZgrFqW8W1XbSy8mZ3N8rPvMPyXCZee5UYZjtfk
+    0: QmPQK4xeUZgrFqW8W1XbSy8mZ3N8rPvMPyXCZee5UYZjtf
     1: QmTDvHej87Sctdwy33KEz5Pn1k7FyfgQ5PM4tfN114bC6H
     2: QmbV2KPyeL6TAY3heJVmLGUGtYmNXXSNb4MEJ9wscHCtrB
     3: QmdvsVVhY7svCZPkirzZFfWVznWp8ZrhGDYBNSsG9hYByx 
-    
+
 ip: 0.0.0.0
 node_number: 4
 nodename: node2
