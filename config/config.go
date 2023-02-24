@@ -51,7 +51,7 @@ func Loadconfig(filepath string) *P2pconfig {
 
 	viperRead.SetConfigName(filepath)
 	fmt.Println(filepath)
-	viperRead.AddConfigPath("./")
+	viperRead.AddConfigPath("./config")
 
 	err := viperRead.ReadInConfig()
 	if err != nil {
