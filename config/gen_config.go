@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"encoding/hex"
@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func main() {
+func gen_config() {
 	viperRead := viper.New()
 
 	// for environment variables

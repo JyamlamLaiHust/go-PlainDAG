@@ -1,9 +1,8 @@
-package main
+package p2p
 
 import (
 	"bufio"
 	"context"
-	"os"
 
 	"errors"
 	"fmt"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/hashicorp/go-msgpack/codec"
 	"github.com/libp2p/go-libp2p"
+
 	crypto "github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
@@ -21,6 +21,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/protocol"
 
+	"github.com/PlainDAG/go-PlainDAG/config"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -43,6 +44,7 @@ type NetworkDealer struct {
 	// ctxLock           sync.RWMutex
 
 	reflectedTypesMap map[uint8]reflect.Type
+	config            *config.P2pconfig
 }
 
 type conn struct {
@@ -55,38 +57,6 @@ type conn struct {
 write me some code to serialize the struct NetworkDealer
 */
 
-func main() {
-
-}
-
-func generateMultiplePrvkeysandSerialize() {
-	// Generate a key pair for this host. We will use it to obtain a valid
-	// host ID.
-
-}
-
-func generateAlistofPrivateKeysandSerialize() {
-
-	// Generate a key pair for this host. We will use it to obtain a valid
-	// host ID.
-	prvKey, pubKey, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
-	if err != nil {
-		panic(err)
-	}
-	// Serialize the keys
-	prvKeyBytes, err := crypto.MarshalPrivateKey(prvKey)
-	pubKeyBytes, err := crypto.MarshalPublicKey(pubKey)
-	if err != nil {
-		panic(err)
-	}
-	if err := os.WriteFile("Keys", prvKeyBytes, 0644); err != nil {
-		panic(err)
-	}
-	if err := os.WriteFile("Keys", pubKeyBytes, 0644); err != nil {
-		panic(err)
-	}
-
-}
 func makeHost(port int, prvKey crypto.PrivKey) host.Host {
 	// Make the host that will handle the network requests
 	sourceMultiAddr, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", port))
