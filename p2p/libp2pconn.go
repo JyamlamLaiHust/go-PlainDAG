@@ -1,8 +1,10 @@
-package p2p
+package main
 
 import (
 	"bufio"
 	"context"
+	"os"
+
 	"errors"
 	"fmt"
 	"log"
@@ -11,6 +13,8 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-msgpack/codec"
+	"github.com/libp2p/go-libp2p"
+	crypto "github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -52,6 +56,45 @@ write me some code to serialize the struct NetworkDealer
 */
 
 func main() {
+
+}
+
+func generateMultiplePrvkeysandSerialize() {
+	// Generate a key pair for this host. We will use it to obtain a valid
+	// host ID.
+
+}
+
+func generateAlistofPrivateKeysandSerialize() {
+
+	// Generate a key pair for this host. We will use it to obtain a valid
+	// host ID.
+	prvKey, pubKey, err := crypto.GenerateKeyPair(crypto.RSA, 2048)
+	if err != nil {
+		panic(err)
+	}
+	// Serialize the keys
+	prvKeyBytes, err := crypto.MarshalPrivateKey(prvKey)
+	pubKeyBytes, err := crypto.MarshalPublicKey(pubKey)
+	if err != nil {
+		panic(err)
+	}
+	if err := os.WriteFile("Keys", prvKeyBytes, 0644); err != nil {
+		panic(err)
+	}
+	if err := os.WriteFile("Keys", pubKeyBytes, 0644); err != nil {
+		panic(err)
+	}
+
+}
+func makeHost(port int, prvKey crypto.PrivKey) host.Host {
+	// Make the host that will handle the network requests
+	sourceMultiAddr, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", port))
+	host, err := libp2p.New(libp2p.Identity(prvKey), libp2p.ListenAddrs(sourceMultiAddr))
+	if err != nil {
+		log.Fatal(err)
+	}
+	return host
 
 }
 
