@@ -19,8 +19,21 @@ func main() {
 		panic(err)
 	}
 	//fmt.Println(n.H.ID().Pretty())
-	time.Sleep(15 * time.Second)
+	time.Sleep(10 * time.Second)
 	n.Connectpeers()
+	go n.Broadcast()
+	go n.HandleMsgForever()
+	//n.PrintConnPool()
 	select {}
 
+	// var x interface{}
+	// x = 0
+	// // var a interface{}
+	// // a = &x
+	// switch i := x.(type) {
+	// case int:
+	// 	fmt.Println("int", i)
+	// default:
+	// 	fmt.Println("none")
+	// }
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 
 	"github.com/PlainDAG/go-PlainDAG/config"
+	"github.com/PlainDAG/go-PlainDAG/core"
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -72,43 +73,68 @@ func (n *NetworkDealer) Listen() {
 
 		log.Println(s.Conn().RemotePeer().String())
 		r := bufio.NewReader(s)
-		go n.HandleConn(r)
+		n.HandleConn(r)
+
 	}
 	n.H.SetStreamHandler(protocol.ID("PlainDAG"), listenStream)
 
 }
 
-func (n *NetworkDealer) HandleConn(r *bufio.Reader) error {
+func (n *NetworkDealer) HandleConn(r *bufio.Reader) {
+	for {
 
-	rpcType, err := r.ReadByte()
-	dec := codec.NewDecoder(r, &codec.MsgpackHandle{})
-	if err != nil {
-		return err
-	}
-	reflectedType, ok := n.reflectedTypesMap[rpcType]
-	if !ok {
-		return errors.New(fmt.Sprintf("type of the msg (%d) is unknown", rpcType))
-	}
-	msgBody := reflect.Zero(reflectedType).Interface()
-	if err := dec.Decode(&msgBody); err != nil {
-		return err
+		rpcType, err := r.ReadByte()
+		dec := codec.NewDecoder(r, &codec.MsgpackHandle{})
+		if err != nil {
+			log.Println("error reading byte: ", err)
+		}
+		_, ok := n.reflectedTypesMap[rpcType]
+
+		if !ok {
+			log.Panicln("unknown rpc type: ", rpcType)
+		}
+
+		// knowing the type of the struct, construct it with a known byte array
+
+		// var msgBody interface{}
+		// var bytearray []byte
+		// if err := dec.Decode(&bytearray); err != nil {
+		// 	log.Println("error decoding msg: ", err)
+		// }
+		// if rpcType == core.TestMsgTag {
+		// 	var msg core.TestMsg
+		// 	json.Unmarshal(bytearray, &msg)
+		// 	msgBody = msg
+		// }
+		msgBody := reflect.New(n.reflectedTypesMap[rpcType]).Interface()
+		if err := dec.Decode(&msgBody); err != nil {
+			log.Println("error decoding sig: ", err)
+		}
+		var sig []byte
+		if err := dec.Decode(&sig); err != nil {
+			log.Println("error decoding sig: ", err)
+		}
+
+		msgWithSig := MsgWithSig{
+			Msg: msgBody,
+			Sig: sig,
+		}
+
+		select {
+		case n.msgch <- msgWithSig:
+		case <-n.shutdownCh:
+			log.Println("shutting down")
+		}
+		// write a code to know which kind of struct the pointer is pointed to?
+
+		//knowing the type of the struct, how to construct it with a known byte array?
+		// msg := reflect.New(n.reflectedTypesMap[rpcType]).Interface()
+		// if err := dec.Decode(msg); err != nil {
+		// 	log.Println("error decoding msg: ", err)
+		// }
+		// var sig []byte
 	}
 
-	var sig []byte
-	if err := dec.Decode(&sig); err != nil {
-		return err
-	}
-
-	msgWithSig := MsgWithSig{
-		Msg: msgBody,
-		Sig: sig,
-	}
-	select {
-	case n.msgch <- msgWithSig:
-	case <-n.shutdownCh:
-		return errors.New("shut down")
-	}
-	return nil
 }
 
 func (n *NetworkDealer) Connect(port int, addr string, pubKey string) (*bufio.Writer, error) {
@@ -190,7 +216,7 @@ func NewnetworkDealer(filepath string) (*NetworkDealer, error) {
 		shutdown:   false,
 		shutdownCh: make(chan struct{}),
 
-		reflectedTypesMap: make(map[uint8]reflect.Type),
+		reflectedTypesMap: core.ReflectedTypesMap,
 		config:            c,
 	}
 
