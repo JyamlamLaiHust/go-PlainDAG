@@ -25,14 +25,15 @@ import (
 	"github.com/multiformats/go-multiaddr"
 )
 
-type MsgWithSig struct {
-	Msg interface{}
-	Sig []byte
+type MsgWithSigandSrc struct {
+	Msg    interface{}
+	Sig    []byte
+	Source string
 }
 
 type NetworkDealer struct {
 	connPool     map[string]*conn
-	msgch        chan MsgWithSig
+	msgch        chan MsgWithSigandSrc
 	H            host.Host
 	shutdown     bool
 	shutdownCh   chan struct{}
@@ -69,18 +70,17 @@ func makeHost(port int, prvKey crypto.PrivKey) host.Host {
 
 func (n *NetworkDealer) Listen() {
 	listenStream := func(s network.Stream) {
-		log.Println("Received a connection")
+		log.Println("Received a connection from ", s.Conn().RemotePeer().String())
 
-		log.Println(s.Conn().RemotePeer().String())
 		r := bufio.NewReader(s)
-		n.HandleConn(r)
+		n.HandleConn(r, s.Conn().RemotePeer().String())
 
 	}
 	n.H.SetStreamHandler(protocol.ID("PlainDAG"), listenStream)
 
 }
 
-func (n *NetworkDealer) HandleConn(r *bufio.Reader) {
+func (n *NetworkDealer) HandleConn(r *bufio.Reader, sourcepubkey string) {
 	for {
 
 		rpcType, err := r.ReadByte()
@@ -115,13 +115,14 @@ func (n *NetworkDealer) HandleConn(r *bufio.Reader) {
 			log.Println("error decoding sig: ", err)
 		}
 
-		msgWithSig := MsgWithSig{
-			Msg: msgBody,
-			Sig: sig,
+		MsgWithSigandSrc := MsgWithSigandSrc{
+			Msg:    msgBody,
+			Sig:    sig,
+			Source: sourcepubkey,
 		}
 
 		select {
-		case n.msgch <- msgWithSig:
+		case n.msgch <- MsgWithSigandSrc:
 		case <-n.shutdownCh:
 			log.Println("shutting down")
 		}
@@ -211,7 +212,7 @@ func NewnetworkDealer(filepath string) (*NetworkDealer, error) {
 	h := makeHost(c.Port, c.Prvkey)
 	n := &NetworkDealer{
 		connPool:   make(map[string]*conn),
-		msgch:      make(chan MsgWithSig, 100),
+		msgch:      make(chan MsgWithSigandSrc, 100),
 		H:          h,
 		shutdown:   false,
 		shutdownCh: make(chan struct{}),

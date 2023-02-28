@@ -84,7 +84,7 @@ func (n *NetworkDealer) HandleMsgForever() {
 
 			switch msgasserted := msg.Msg.(type) {
 			case *core.TestMsg:
-				log.Println("receive msg: ", msgasserted)
+				log.Println("receive msg: ", msgasserted, "from ", msg.Source)
 			default:
 				log.Println("unknown type of msg")
 			}
