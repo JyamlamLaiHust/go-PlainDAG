@@ -19,20 +19,27 @@ type Lroundmsg struct {
 }
 
 type Mroundmsg struct {
-	RN              uint32   `json:"rn"`
-	ReferencesHash  [][]byte `json:"referenceshash"`
-	ReferencesIndex []uint8  `json:"referencesindex"`
-	Source          string   `json:"source"`
-	Hash            []byte   `json:hash`
+	Rn         uint32 `json:"rn"`
+	References []Ref  `json:"references"`
+	Source     string `json:"source"`
+	Hash       []byte `json:hash`
+}
+
+type Ref struct {
+	H     []byte
+	Index uint8
 }
 
 type Message interface {
 	Encode() ([]byte, error)
 	DisplayinJson() error
-	GetRefs() ([][]byte, []uint8)
-	HavePath(msg Message, msgbyrounds []*MSGByRound) (bool, error)
-	IsEqual(msg Message) (bool, error)
+	//MarshalJSON() ([]byte, error)
+	GetRefs() []Ref
+	HavePath(msg Message, msgbyrounds []*MSGByRound, targetmsground *MSGByRound) (bool, error)
+
 	GetRN() uint32
+	GetHash() []byte
+	SetSource(string)
 }
 
 var fmsg Froundmsg

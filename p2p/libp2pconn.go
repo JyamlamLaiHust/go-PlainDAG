@@ -21,7 +21,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 
 	"github.com/PlainDAG/go-PlainDAG/config"
-	"github.com/PlainDAG/go-PlainDAG/core"
+
 	"github.com/multiformats/go-multiaddr"
 )
 
@@ -167,7 +167,7 @@ func PackMultiaddr(port int, addr string, pubKey string) string {
 	return fmt.Sprintf("/ip4/%s/tcp/%v/p2p/%s", addr, port, pubKey)
 }
 
-func (n *NetworkDealer) SendMsg(rpcType uint8, msg interface{}, sig []byte, dest string) error {
+func (n *NetworkDealer) SendMsg(messagetype uint8, msg interface{}, sig []byte, dest string) error {
 
 	n.shutdownLock.Lock()
 	if n.shutdown {
@@ -191,7 +191,7 @@ func (n *NetworkDealer) SendMsg(rpcType uint8, msg interface{}, sig []byte, dest
 		n.connPool[dest] = c
 	}
 
-	if err := c.w.WriteByte(rpcType); err != nil {
+	if err := c.w.WriteByte(messagetype); err != nil {
 		return err
 	}
 	if err := c.encode.Encode(msg); err != nil {
@@ -206,7 +206,7 @@ func (n *NetworkDealer) SendMsg(rpcType uint8, msg interface{}, sig []byte, dest
 	return nil
 }
 
-func NewnetworkDealer(filepath string) (*NetworkDealer, error) {
+func NewnetworkDealer(filepath string, reflectedTypesMap map[uint8]reflect.Type) (*NetworkDealer, error) {
 	c := config.Loadconfig(filepath)
 
 	h := MakeHost(c.Port, c.Prvkey)
@@ -217,9 +217,17 @@ func NewnetworkDealer(filepath string) (*NetworkDealer, error) {
 		shutdown:   false,
 		shutdownCh: make(chan struct{}),
 
-		reflectedTypesMap: core.ReflectedTypesMap,
+		reflectedTypesMap: reflectedTypesMap,
 		config:            c,
 	}
 
 	return n, nil
+}
+
+func (n *NetworkDealer) ExtractMsg() chan MsgWithSigandSrc {
+	return n.msgch
+}
+
+func (n *NetworkDealer) ExtractShutdown() chan struct{} {
+	return n.shutdownCh
 }

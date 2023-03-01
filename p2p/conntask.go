@@ -2,14 +2,14 @@ package p2p
 
 import (
 	"log"
+	"reflect"
 	"strconv"
-	"time"
 
 	"github.com/hashicorp/go-msgpack/codec"
 )
 
-func Startpeer(filepath string) (*NetworkDealer, error) {
-	n, err := NewnetworkDealer(filepath)
+func Startpeer(filepath string, reflectedTypesMap map[uint8]reflect.Type) (*NetworkDealer, error) {
+	n, err := NewnetworkDealer(filepath, reflectedTypesMap)
 	if err != nil {
 		return nil, err
 	}
@@ -18,25 +18,26 @@ func Startpeer(filepath string) (*NetworkDealer, error) {
 
 }
 
-func (n *NetworkDealer) Connectpeers() {
+func (n *NetworkDealer) Connectpeers() error {
 	c := n.config
 	for id, addr := range c.IdaddrMap {
 		if id != c.Id {
 
 			writer, err := n.Connect(c.IdportMap[id], addr, c.Pubkeyothersmap[id])
 			if err != nil {
-				panic(err)
+				return err
 			}
 			log.Println("connect to ", addr, c.IdportMap[id], " success")
 			n.connPool[addr+strconv.Itoa(c.IdportMap[id])] = &conn{
 				w: writer,
 
 				dest: addr + strconv.Itoa(c.IdportMap[id]),
-				//convert int to strin
+
 				encode: codec.NewEncoder(writer, &codec.MsgpackHandle{}),
 			}
 		}
 	}
+	return nil
 
 }
 
@@ -47,30 +48,31 @@ func (n *NetworkDealer) Connectpeers() {
 
 // }
 
-func (n *NetworkDealer) Broadcast(msg interface{}, sig []byte) {
+func (n *NetworkDealer) Broadcast(messagetype uint8, msg interface{}, sig []byte) error {
 
-	for {
-		time.Sleep(5 * time.Second)
-		for _, conn := range n.connPool {
-
-			n.SendMsg(0, msg, sig, conn.dest)
+	for _, conn := range n.connPool {
+		//fmt.Println(conn)
+		err := n.SendMsg(messagetype, msg, sig, conn.dest)
+		if err != nil {
+			return err
 		}
 	}
+	return nil
 
 }
 
-func (n *NetworkDealer) HandleMsgForever() {
+// func (n *NetworkDealer) HandleMsgForever() {
 
-	for {
-		select {
-		case <-n.shutdownCh:
-			return
-		case msg := <-n.msgch:
-			log.Println("receive msg: ", msg.Msg)
-		}
+// 	for {
+// 		select {
+// 		case <-n.shutdownCh:
+// 			return
+// 		case msg := <-n.msgch:
+// 			log.Println("receive msg: ", msg.Msg)
+// 		}
 
-	}
-}
+// 	}
+// }
 
 // func printconfig(c *config.P2pconfig) {
 // 	log.Println("id: ", c.Id)

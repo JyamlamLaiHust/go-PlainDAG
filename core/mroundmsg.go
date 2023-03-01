@@ -7,31 +7,14 @@ import (
 	"fmt"
 )
 
-func (m *Mroundmsg) MarshalJSON() ([]byte, error) {
+// func (m *Mroundmsg) MarshalJSON() ([]byte, error) {
 
-	hexstrings := make([]string, len(m.ReferencesHash))
-	for i, v := range m.ReferencesHash {
-		hexstrings[i] = fmt.Sprintf("%x", v)
-	}
-	hexstring := fmt.Sprintf("%x", m.Hash)
-	return json.Marshal(struct {
-		RN              uint32
-		ReferencesHash  []string
-		ReferencesIndex []uint8
-		Source          string
-		Hash            string
-	}{
-		RN:              m.RN,
-		ReferencesHash:  hexstrings,
-		ReferencesIndex: m.ReferencesIndex,
-		Source:          m.Source,
-		Hash:            hexstring,
-	})
-
-}
+// 	return nil, nil
+// }
 
 func (m *Mroundmsg) DisplayinJson() error {
 	b, _ := json.Marshal(m)
+
 	fmt.Println(string(b))
 	return nil
 }
@@ -41,65 +24,68 @@ func (m *Mroundmsg) Encode() ([]byte, error) {
 	return h[:], nil
 }
 
-func (m *Mroundmsg) GetRefs() ([][]byte, []uint8) {
-	return m.ReferencesHash, m.ReferencesIndex
-}
-
 func (m *Mroundmsg) GetRN() uint32 {
-	return m.RN
-}
-func (m *Mroundmsg) IsEqual(msg Message) (bool, error) {
-	m2, ok := msg.(*Mroundmsg)
-	if !ok {
-		return false, fmt.Errorf("wrong type")
-	}
-	if m.RN != m2.RN {
-		return false, nil
-	}
-	if len(m.ReferencesHash) != len(m2.ReferencesHash) {
-		return false, nil
-	}
-	if len(m.ReferencesIndex) != len(m2.ReferencesIndex) {
-		return false, nil
-	}
-	for i, v := range m.ReferencesHash {
-		if bytes.Equal(v, m2.ReferencesHash[i]) {
-			return false, nil
-		}
-	}
-	for i, v := range m.ReferencesIndex {
-		if v != m2.ReferencesIndex[i] {
-			return false, nil
-		}
-	}
-	if m.Source != m2.Source {
-		return false, nil
-	}
-	return true, nil
+	return m.Rn
 }
 
-func (m *Mroundmsg) HavePath(msg Message, msgbyrounds []*MSGByRound) (bool, error) {
-	_, indexes := m.GetRefs()
+func (m *Mroundmsg) GetRefs() []Ref {
+	return m.References
+}
 
+func (m *Mroundmsg) GetHash() []byte {
+	return m.Hash
+}
+
+// msg is the target message to be checked
+// msgbyrounds are the messages whose round number is less than message m but larger than the target message
+// targetmsground is the messageround whose round number is equal to the target message
+
+func (m *Mroundmsg) HavePath(msg Message, msgbyrounds []*MSGByRound, targetmsground *MSGByRound) (bool, error) {
+	// hashes, indexes := m.GetRefs()
+	refs := m.GetRefs()
 	for _, msgbyround := range msgbyrounds {
-		msgs := msgbyround.GetMsgByindexes(indexes)
-		for _, msg := range msgs {
+		msgs, err := msgbyround.GetMsgByRefsBatch(refs)
+		if err != nil {
+			panic(err)
+		}
+		uniqueRefs := make(map[*Ref]bool)
+		for _, m := range msgs {
+			refs := m.GetRefs()
+			for _, ref := range refs {
+				uniqueRefs[&ref] = true
+			}
+		}
+		trueRefs := []Ref{}
+		for k, v := range uniqueRefs {
+			if v {
+				trueRefs = append(trueRefs, *k)
+			}
+		}
+		refs = trueRefs
+
+	}
+	msgtocheck, err := targetmsground.GetMsgByRefsBatch(refs)
+	if err != nil {
+		panic(err)
+	}
+	for _, m := range msgtocheck {
+		if bytes.Equal(m.GetHash(), msg.GetHash()) {
+			return true, nil
+		}
 	}
 	return false, nil
 
-	// 	return true
-
 }
 
-func NewMroundmsg(rn uint32, hashset [][]byte, indexset []uint8, src string) (*Mroundmsg, error) {
+func (m *Mroundmsg) SetSource(dest string) {
+	m.Source = dest
+}
+func NewMroundmsg(rn uint32, refs []Ref, source string) (*Mroundmsg, error) {
 	m := Mroundmsg{
-		RN:              rn,
-		ReferencesHash:  hashset,
-		ReferencesIndex: indexset,
-		Source:          src,
+		Rn:         rn,
+		References: refs,
 	}
 	var err error
 	m.Hash, err = m.Encode()
 	return &m, err
-
 }
