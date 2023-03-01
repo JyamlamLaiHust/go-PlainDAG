@@ -5,22 +5,41 @@ import "reflect"
 const (
 	FMsgTag uint8 = iota
 	LMsgTag
-	PMsgTag
+	MMsgTag
 )
 
-type froundmsg struct {
+const N = 6
+
+type Froundmsg struct {
+	Mroundmsg
 }
 
-type lroundmsg struct {
+type Lroundmsg struct {
+	Mroundmsg
 }
 
-type plainmsg struct{}
+type Mroundmsg struct {
+	RN              uint32   `json:"rn"`
+	ReferencesHash  [][]byte `json:"referenceshash"`
+	ReferencesIndex []uint8  `json:"referencesindex"`
+	Source          string   `json:"source"`
+	Hash            []byte   `json:hash`
+}
 
-var fmsg froundmsg
-var lmsg lroundmsg
-var pmsg plainmsg
+type Message interface {
+	Encode() ([]byte, error)
+	DisplayinJson() error
+	GetRefs() ([][]byte, []uint8)
+	HavePath(msg Message, msgbyrounds []*MSGByRound) (bool, error)
+	IsEqual(msg Message) (bool, error)
+	GetRN() uint32
+}
+
+var fmsg Froundmsg
+var lmsg Lroundmsg
+var mmsg Mroundmsg
 var ReflectedTypesMap = map[uint8]reflect.Type{
 	FMsgTag: reflect.TypeOf(fmsg),
 	LMsgTag: reflect.TypeOf(lmsg),
-	PMsgTag: reflect.TypeOf(pmsg),
+	MMsgTag: reflect.TypeOf(mmsg),
 }

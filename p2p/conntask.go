@@ -53,11 +53,6 @@ func (n *NetworkDealer) Broadcast(msg interface{}, sig []byte) {
 		time.Sleep(5 * time.Second)
 		for _, conn := range n.connPool {
 
-			// serialize a with marshall
-			// c, err := json.Marshal(a)
-			// if err != nil {
-			// 	panic(err)
-			// }
 			n.SendMsg(0, msg, sig, conn.dest)
 		}
 	}
