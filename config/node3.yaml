@@ -4,23 +4,31 @@ id_ip:
     1: 0.0.0.0
     2: 0.0.0.0
     3: 0.0.0.0
+    4: 0.0.0.0
+    5: 0.0.0.0
 id_name:
     0: node0
     1: node1
     2: node2
     3: node3
+    4: node4
+    5: node5
 id_p2p_port:
     0: 9000
     1: 9001
     2: 9002
     3: 9003
+    4: 9004
+    5: 9005
 id_public_key:
     0: QmPQK4xeUZgrFqW8W1XbSy8mZ3N8rPvMPyXCZee5UYZjtf
     1: QmTDvHej87Sctdwy33KEz5Pn1k7FyfgQ5PM4tfN114bC6H
     2: QmbV2KPyeL6TAY3heJVmLGUGtYmNXXSNb4MEJ9wscHCtrB
     3: QmdvsVVhY7svCZPkirzZFfWVznWp8ZrhGDYBNSsG9hYByx 
+    4: QmYLpRDRtQtqESNGWLidqo9RaZNt1xEYEAtaEdSenQGLZx
+    5: QmTzbe4qEgGFe6aEMUC4am7qmL368ZQwToD4LkeZKQHTDn
 ip: 0.0.0.0
-node_number: 4
+node_number: 6
 nodename: node3
 p2p_port: 9003
 private_key: CAASpwkwggSjAgEAAoIBAQClt/or2unWircq5Sz/pAn1N6SxH6oyrxe6y8lzmFvJV0FRXQcHhQB1h+spVnT50SYnRZUvyRwXb3mO7zDzDtQWEjGcWL3R5tWMp0iYdstbM3GWU9jtJsJh4ZfmBhVBQTapIAgbqqnamNAdGWQHFN9rozOZEvW6HDnFby8bPVL1QfW9biSDPuRD2HPS+vfCohnqamd6ihhbVx4RM+L5iM2XmISf2DDZaQ3TQbmGZfkthxeyxv/80nuRKrM5nDHFt1UjGSbzbhutm8bghxqS8vueUzMMC84hBFzg93dWEpJNICJaO+ebTT56uMoCAdP+bvYvTZF8HN5/SJMJdrl2i6i3AgMBAAECggEAR+1DYxeAGQNaHv8bedWcENfW3p3sxFTkysm6pTaC2C/MBOGItIXQvjKBKg8BdJCHq9Hyv6vdSnqy2wwMReKwwOeiqsaFlP5Iv+S3iJ0/BFWevm2kIMKK6er9f/Qx84G3lM53VnLLiDp9UbP8i2pO0qwiMBVfnCi2FnB8lKkYQaRtP3bN8cOpOvG8bPx9qjKQg3jshPD6u2+taRUNtH1HwVjg5ogS3dUoILUelGfNPzlmMbDUmWfiRNVqOkOjUqir0kInSBN8MNOFXkI1cegIQsVsfPZnJk1hcDE1ceFgbTGktIsMvQMhcHlAyhTTKMBcl3cH1bXj9i64t7o+bWp/QQKBgQDBu6LF7RfA2sJfEuJ+glQ0+AEaMyewN9Vea5JtxpGe0YzrfyPqmP8kUiZda1dXgym/XvP2iN97pYWunMLZkaQ1vMiNnUW0YfougKjCxGCT3qzYuCQbfi11vVVzavNp/MoJ0VbY++MTYn2/jsuA1Ct09KVBUvcgiMrFXTysy8cYYQKBgQDa+1K0hU8LKNY5Vk/6i6PF84FgYK/6rdkzh+i6tXaQY5l6aFxsbgGxy/AtEWEAQy0DIBM9MyVpHzm2aoXwGYsTtaO3a8AhDtlY7X5agX48M0OveLu7jrzzIXwu7YRrtVc4wu2F/u5YPcfZhiRuWS8gSNqFPCqhxAhB8kptght4FwKBgQCBwF67Oxj+lEU8EdTaMAWf2D48wugg8LQZ4egXV7et6+D61JNEiyXOuKpzRPIhbXpnbnvssS0kje5jzR//Qbj+OKsFlcDamAhMXuUoVQft4WRYXbPpKe/efGkfvRC7+o+CVc9Z0hH6qKtZwZRweymD0lpfzuYuxw8vckux22VD4QKBgBx8JsT+tkqAVGV++cZglbwxMbokuZ+FL8TJQBfRdQvROOy4WJVuNeA35BUotpJ/KoLGkFocphgnjK1S6/tQh0vYC+TXKlXihZlQw2foglA4ZuyTavA54BBMYcgE833DSAZFLPqKL9zgpHeCQIjuJvgvIeXE7tK+GkjhyJa4HvSfAoGAXgqdANcRP70203KtPbVgh0n3z1HEuZmd6OJy6FAp3FlSIbM59Fuh5Bm98XlhIX28+AOro9s6ryLZsD/mNriYu0L7VuzylcQ+vM8TK+c6jb4Xiag1cxmos/sig+pHkTTV66MU7WrG0BDM6TgWC2o45OJSp6YMzPQqC/D+XqOiv8Y=

@@ -1,22 +1,20 @@
 package p2p
 
 import (
-	"encoding/binary"
 	"log"
 	"strconv"
 	"time"
 
-	"github.com/PlainDAG/go-PlainDAG/core"
 	"github.com/hashicorp/go-msgpack/codec"
 )
 
 func Startpeer(filepath string) (*NetworkDealer, error) {
-	h, err := NewnetworkDealer(filepath)
+	n, err := NewnetworkDealer(filepath)
 	if err != nil {
 		return nil, err
 	}
-	h.Listen()
-	return h, nil
+	n.Listen()
+	return n, nil
 
 }
 
@@ -49,26 +47,18 @@ func (n *NetworkDealer) Connectpeers() {
 
 // }
 
-func (n *NetworkDealer) Broadcast() {
-	var i uint32
-	i = 0
+func (n *NetworkDealer) Broadcast(msg interface{}, sig []byte) {
+
 	for {
 		time.Sleep(5 * time.Second)
 		for _, conn := range n.connPool {
 
-			bytes := make([]byte, 4)
-			binary.BigEndian.PutUint32(bytes, uint32(i))
-			i++
-			// concatenate bytes
-
-			b := append([]byte("hello 12321312"), bytes...)
-			a := core.TestMsg{A: b}
 			// serialize a with marshall
 			// c, err := json.Marshal(a)
 			// if err != nil {
 			// 	panic(err)
 			// }
-			n.SendMsg(0, a, []byte("hello"), conn.dest)
+			n.SendMsg(0, msg, sig, conn.dest)
 		}
 	}
 
@@ -81,15 +71,9 @@ func (n *NetworkDealer) HandleMsgForever() {
 		case <-n.shutdownCh:
 			return
 		case msg := <-n.msgch:
-
-			switch msgasserted := msg.Msg.(type) {
-			case *core.TestMsg:
-				log.Println("receive msg: ", msgasserted, "from ", msg.Source)
-			default:
-				log.Println("unknown type of msg")
-			}
-
+			log.Println("receive msg: ", msg.Msg)
 		}
+
 	}
 }
 

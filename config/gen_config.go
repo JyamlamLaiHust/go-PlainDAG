@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	crypto "github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/spf13/viper"
 )
 
@@ -79,19 +78,19 @@ func Gen_config() {
 
 	//generate private keys and public keys for each node
 	//generate config file for each node
-	idPrvkeyMap := make(map[int][]byte, nodeNumber)
+	// idPrvkeyMap := make(map[int][]byte, nodeNumber)
 
-	idPubkeyMapHex := make(map[int]string, nodeNumber)
-	for id, _ := range idNameMap {
-		privateKey, publicKey, _ := crypto.GenerateKeyPair(0, 2048)
-		privateKeyString, _ := crypto.MarshalPrivateKey(privateKey)
-		publicKeyString, _ := crypto.MarshalPublicKey(publicKey)
+	// idPubkeyMapHex := make(map[int]string, nodeNumber)
+	// for id, _ := range idNameMap {
+	// 	privateKey, publicKey, _ := crypto.GenerateKeyPair(0, 2048)
+	// 	privateKeyString, _ := crypto.MarshalPrivateKey(privateKey)
+	// 	publicKeyString, _ := crypto.MarshalPublicKey(publicKey)
 
-		idPrvkeyMap[id] = privateKeyString
+	// 	idPrvkeyMap[id] = privateKeyString
 
-		idPubkeyMapHex[id] = crypto.ConfigEncodeKey(publicKeyString)
+	// 	idPubkeyMapHex[id] = crypto.ConfigEncodeKey(publicKeyString)
 
-	}
+	// }
 	for id, nodename := range idNameMap {
 		//generate private key and public key
 
@@ -99,9 +98,9 @@ func Gen_config() {
 		viperWrite := viper.New()
 		viperWrite.Set("id", id)
 		viperWrite.Set("nodename", nodename)
-		viperWrite.Set("private_key", crypto.ConfigEncodeKey(idPrvkeyMap[id]))
-		viperWrite.Set("public_key", idPubkeyMapHex[id])
-		viperWrite.Set("id_public_key", idPubkeyMapHex)
+		//viperWrite.Set("private_key", crypto.ConfigEncodeKey(idPrvkeyMap[id]))
+		//viperWrite.Set("public_key", idPubkeyMapHex[id])
+		//viperWrite.Set("id_public_key", idPubkeyMapHex)
 		viperWrite.Set("p2p_port", idP2PPortMap[id])
 		viperWrite.Set("ip", idIPMap[id])
 		viperWrite.Set("id_name", idNameMap)

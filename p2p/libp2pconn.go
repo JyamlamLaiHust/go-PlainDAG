@@ -57,7 +57,7 @@ type conn struct {
 write me some code to serialize the struct NetworkDealer
 */
 
-func makeHost(port int, prvKey crypto.PrivKey) host.Host {
+func MakeHost(port int, prvKey crypto.PrivKey) host.Host {
 	// Make the host that will handle the network requests
 	sourceMultiAddr, _ := multiaddr.NewMultiaddr(fmt.Sprintf("/ip4/0.0.0.0/tcp/%d", port))
 	host, err := libp2p.New(libp2p.Identity(prvKey), libp2p.ListenAddrs(sourceMultiAddr))
@@ -108,7 +108,7 @@ func (n *NetworkDealer) HandleConn(r *bufio.Reader, sourcepubkey string) {
 		// }
 		msgBody := reflect.New(n.reflectedTypesMap[rpcType]).Interface()
 		if err := dec.Decode(&msgBody); err != nil {
-			log.Println("error decoding sig: ", err)
+			log.Println("error decoding msg: ", err)
 		}
 		var sig []byte
 		if err := dec.Decode(&sig); err != nil {
@@ -209,10 +209,10 @@ func (n *NetworkDealer) SendMsg(rpcType uint8, msg interface{}, sig []byte, dest
 func NewnetworkDealer(filepath string) (*NetworkDealer, error) {
 	c := config.Loadconfig(filepath)
 
-	h := makeHost(c.Port, c.Prvkey)
+	h := MakeHost(c.Port, c.Prvkey)
 	n := &NetworkDealer{
 		connPool:   make(map[string]*conn),
-		msgch:      make(chan MsgWithSigandSrc, 100),
+		msgch:      make(chan MsgWithSigandSrc, 1000),
 		H:          h,
 		shutdown:   false,
 		shutdownCh: make(chan struct{}),

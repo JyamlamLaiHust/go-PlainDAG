@@ -2,20 +2,25 @@ package core
 
 import "reflect"
 
-type TestMsg struct {
-	A []byte
-}
-
-type Wrongmsg struct {
-	a string
-}
-
 const (
-	TestMsgTag uint8 = iota
+	FMsgTag uint8 = iota
+	LMsgTag
+	PMsgTag
 )
 
-var testmsg TestMsg
-var wrongmsg Wrongmsg
+type froundmsg struct {
+}
+
+type lroundmsg struct {
+}
+
+type plainmsg struct{}
+
+var fmsg froundmsg
+var lmsg lroundmsg
+var pmsg plainmsg
 var ReflectedTypesMap = map[uint8]reflect.Type{
-	TestMsgTag: reflect.TypeOf(testmsg),
+	FMsgTag: reflect.TypeOf(fmsg),
+	LMsgTag: reflect.TypeOf(lmsg),
+	PMsgTag: reflect.TypeOf(pmsg),
 }
