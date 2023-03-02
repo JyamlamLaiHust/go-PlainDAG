@@ -6,34 +6,39 @@ import (
 	"strconv"
 )
 
-type MSGByRound struct {
+type Round struct {
 	Msgs        [N][]Message
 	Roundnumber int
 }
 
-func (mr *MSGByRound) GetMsgByRef(ref *Ref) (Message, error) {
-	if mr.Msgs[ref.Index] == nil {
-		return nil, errors.New("no message at index" + strconv.Itoa(int(ref.Index)))
-	}
+func (r *Round) GetMsgByRef(hash []byte) (Message, error) {
 
-	for _, msg := range mr.Msgs[ref.Index] {
-		if bytes.Equal(msg.GetHash(), ref.H) {
-			return msg, nil
+	for _, msg := range r.Msgs {
+		for _, m := range msg {
+			if bytes.Equal(m.GetHash(), hash) {
+				return m, nil
+			}
 		}
 	}
-	return nil, errors.New("no such message for" + string(ref.H) + "at index" +
-		strconv.Itoa(int(ref.Index)) + "in round" + strconv.Itoa(mr.Roundnumber))
+	return nil, errors.New("no such message for" + string(hash) + "in round" + strconv.Itoa(r.Roundnumber))
 
 }
 
-func (mr *MSGByRound) GetMsgByRefsBatch(refs []Ref) ([]Message, error) {
-	msgs := make([]Message, len(refs))
-	var err error
-	for i, r := range refs {
-		msgs[i], err = mr.GetMsgByRef(&r)
-		if err != nil {
-			return nil, err
+func (r *Round) GetMsgByRefsBatch(hashes [][]byte) ([]Message, error) {
+
+	msgs := make([]Message, 0)
+	searchMap := make(map[string]bool)
+	for _, hash := range hashes {
+		searchMap[string(hash)] = true
+	}
+
+	for _, msg := range r.Msgs {
+		for _, m := range msg {
+			if searchMap[string(m.GetHash())] {
+				msgs = append(msgs, m)
+			}
 		}
 	}
+
 	return msgs, nil
 }

@@ -24,7 +24,7 @@ func (m *Mroundmsg) GetRN() uint32 {
 	return m.Rn
 }
 
-func (m *Mroundmsg) GetRefs() []Ref {
+func (m *Mroundmsg) GetRefs() [][]byte {
 	return m.References
 }
 
@@ -50,31 +50,35 @@ func (m *Mroundmsg) VerifySig(n *Node, sig []byte) (bool, error) {
 // msgbyrounds are the messages whose round number is less than message m but larger than the target message
 // targetmsground is the messageround whose round number is equal to the target message
 
-func (m *Mroundmsg) HavePath(msg Message, msgbyrounds []*MSGByRound, targetmsground *MSGByRound) (bool, error) {
+func (m *Mroundmsg) HavePath(msg Message, rounds []*Round, targetround *Round) (bool, error) {
 	// hashes, indexes := m.GetRefs()
 	refs := m.GetRefs()
-	for _, msgbyround := range msgbyrounds {
-		msgs, err := msgbyround.GetMsgByRefsBatch(refs)
+	for _, round := range rounds {
+		msgs, err := round.GetMsgByRefsBatch(refs)
 		if err != nil {
 			panic(err)
 		}
-		uniqueRefs := make(map[*Ref]bool)
+		uniqueRefs := make(map[string]bool)
 		for _, m := range msgs {
 			refs := m.GetRefs()
 			for _, ref := range refs {
-				uniqueRefs[&ref] = true
+				uniqueRefs[string(ref)] = true
 			}
 		}
-		trueRefs := []Ref{}
+
+		trueRefs := make([][]byte, 0)
+		// convert string to byte array
+
 		for k, v := range uniqueRefs {
 			if v {
-				trueRefs = append(trueRefs, *k)
+
+				trueRefs = append(trueRefs, []byte(k))
 			}
 		}
 		refs = trueRefs
 
 	}
-	msgtocheck, err := targetmsground.GetMsgByRefsBatch(refs)
+	msgtocheck, err := targetround.GetMsgByRefsBatch(refs)
 	if err != nil {
 		panic(err)
 	}
@@ -87,7 +91,7 @@ func (m *Mroundmsg) HavePath(msg Message, msgbyrounds []*MSGByRound, targetmsgro
 
 }
 
-func NewMroundmsg(rn uint32, refs []Ref, source []byte) (*Mroundmsg, error) {
+func NewMroundmsg(rn uint32, refs [][]byte, source []byte) (*Mroundmsg, error) {
 	m := Mroundmsg{
 		Rn:         rn,
 		References: refs,

@@ -23,23 +23,23 @@ type Lroundmsg struct {
 // Ref is used to refer a message, and a index field is added to make fast the searching procedure
 // Honestly adding this index field is not recommended because not all nodes have the same index-pubkey mapping
 type Mroundmsg struct {
-	Rn         uint32 `json:"rn"`
-	References []Ref  `json:"references"`
-	Source     []byte `json:"source"`
-	Hash       []byte `json:hash`
+	Rn         uint32   `json:"rn"`
+	References [][]byte `json:"references"`
+	Source     []byte   `json:"source"`
+	Hash       []byte   `json:hash`
 }
 
-type Ref struct {
-	H     []byte
-	Index uint8
-}
+// type Ref struct {
+// 	H     []byte
+// 	Index uint8
+// }
 
 type Message interface {
 	Encode() ([]byte, error)
 	DisplayinJson() error
 	//MarshalJSON() ([]byte, error)
-	GetRefs() []Ref
-	HavePath(msg Message, msgbyrounds []*MSGByRound, targetmsground *MSGByRound) (bool, error)
+	GetRefs() [][]byte
+	HavePath(msg Message, msgbyrounds []*Round, targetmsground *Round) (bool, error)
 
 	GetRN() uint32
 	GetHash() []byte

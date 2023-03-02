@@ -8,7 +8,7 @@ type Messagehandler interface {
 
 type Statichandler struct {
 	n          *Node
-	futureVers map[int]*MSGByRound
+	futureVers map[int]*Round
 }
 
 func (sh *Statichandler) HandleMsg(msg Message, sig []byte) error {
@@ -26,6 +26,6 @@ func (sh *Statichandler) HandleMsg(msg Message, sig []byte) error {
 func NewStatichandler(n *Node) *Statichandler {
 	return &Statichandler{
 		n:          n,
-		futureVers: make(map[int]*MSGByRound),
+		futureVers: make(map[int]*Round),
 	}
 }

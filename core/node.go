@@ -76,13 +76,10 @@ func (n *Node) SendForever() {
 	for {
 		time.Sleep(1000 * time.Millisecond)
 
-		ref := Ref{
-			Index: 1,
-			H:     []byte{1, 2, 3},
-		}
+		H := []byte{1, 2, 3}
 
-		refs := make([]Ref, 0)
-		refs = append(refs, ref)
+		refs := make([][]byte, 0)
+		refs = append(refs, H)
 
 		msg, err := NewMroundmsg(1, refs, n.cfg.Pubkeyraw)
 		if err != nil {
