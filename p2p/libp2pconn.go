@@ -3,6 +3,7 @@ package p2p
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 
 	"errors"
 	"fmt"
@@ -20,15 +21,13 @@ import (
 	"github.com/libp2p/go-libp2p/core/peerstore"
 	"github.com/libp2p/go-libp2p/core/protocol"
 
-	"github.com/PlainDAG/go-PlainDAG/config"
-
 	"github.com/multiformats/go-multiaddr"
 )
 
 type MsgWithSigandSrc struct {
 	Msg    interface{}
 	Sig    []byte
-	Source string
+	Source crypto.PubKey
 }
 
 type NetworkDealer struct {
@@ -44,7 +43,6 @@ type NetworkDealer struct {
 	// ctxLock           sync.RWMutex
 
 	reflectedTypesMap map[uint8]reflect.Type
-	config            *config.P2pconfig
 }
 
 type conn struct {
@@ -73,14 +71,18 @@ func (n *NetworkDealer) Listen() {
 		log.Println("Received a connection from ", s.Conn().RemotePeer().String())
 
 		r := bufio.NewReader(s)
-		n.HandleConn(r, s.Conn().RemotePeer().String())
+		pubkey, err := s.Conn().RemotePeer().ExtractPublicKey()
+		if err != nil {
+			log.Println("error extracting public key: ", err)
+		}
+		n.HandleConn(r, pubkey)
 
 	}
 	n.H.SetStreamHandler(protocol.ID("PlainDAG"), listenStream)
 
 }
 
-func (n *NetworkDealer) HandleConn(r *bufio.Reader, sourcepubkey string) {
+func (n *NetworkDealer) HandleConn(r *bufio.Reader, sourcepubkey crypto.PubKey) {
 	for {
 
 		rpcType, err := r.ReadByte()
@@ -107,14 +109,30 @@ func (n *NetworkDealer) HandleConn(r *bufio.Reader, sourcepubkey string) {
 		// 	msgBody = msg
 		// }
 		msgBody := reflect.New(n.reflectedTypesMap[rpcType]).Interface()
-		if err := dec.Decode(&msgBody); err != nil {
-			log.Println("error decoding msg: ", err)
+		// if err := dec.Decode(&msgBody); err != nil {
+		// 	log.Println("error decoding msg: ", err)
+		// }
+
+		var msgBodyBytes []byte
+		if err := dec.Decode(&msgBodyBytes); err != nil {
+			log.Println("error decoding msgBodyBytes: ", err)
 		}
+
+		json.Unmarshal(msgBodyBytes, &msgBody)
+
 		var sig []byte
 		if err := dec.Decode(&sig); err != nil {
 			log.Println("error decoding sig: ", err)
 		}
-
+		var sigok bool
+		sigok, err = sourcepubkey.Verify(msgBodyBytes, sig)
+		if err != nil {
+			panic(err)
+		}
+		if !sigok {
+			log.Println("signature verification failed")
+			return
+		}
 		MsgWithSigandSrc := MsgWithSigandSrc{
 			Msg:    msgBody,
 			Sig:    sig,
@@ -206,10 +224,9 @@ func (n *NetworkDealer) SendMsg(messagetype uint8, msg interface{}, sig []byte, 
 	return nil
 }
 
-func NewnetworkDealer(filepath string, reflectedTypesMap map[uint8]reflect.Type) (*NetworkDealer, error) {
-	c := config.Loadconfig(filepath)
+func NewnetworkDealer(port int, prvkey crypto.PrivKey, reflectedTypesMap map[uint8]reflect.Type) (*NetworkDealer, error) {
 
-	h := MakeHost(c.Port, c.Prvkey)
+	h := MakeHost(port, prvkey)
 	n := &NetworkDealer{
 		connPool:   make(map[string]*conn),
 		msgch:      make(chan MsgWithSigandSrc, 1000),
@@ -218,7 +235,6 @@ func NewnetworkDealer(filepath string, reflectedTypesMap map[uint8]reflect.Type)
 		shutdownCh: make(chan struct{}),
 
 		reflectedTypesMap: reflectedTypesMap,
-		config:            c,
 	}
 
 	return n, nil

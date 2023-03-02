@@ -6,10 +6,11 @@ import (
 	"strconv"
 
 	"github.com/hashicorp/go-msgpack/codec"
+	"github.com/libp2p/go-libp2p/core/crypto"
 )
 
-func Startpeer(filepath string, reflectedTypesMap map[uint8]reflect.Type) (*NetworkDealer, error) {
-	n, err := NewnetworkDealer(filepath, reflectedTypesMap)
+func Startpeer(port int, prvkey crypto.PrivKey, reflectedTypesMap map[uint8]reflect.Type) (*NetworkDealer, error) {
+	n, err := NewnetworkDealer(port, prvkey, reflectedTypesMap)
 	if err != nil {
 		return nil, err
 	}
@@ -18,20 +19,20 @@ func Startpeer(filepath string, reflectedTypesMap map[uint8]reflect.Type) (*Netw
 
 }
 
-func (n *NetworkDealer) Connectpeers() error {
-	c := n.config
-	for id, addr := range c.IdaddrMap {
-		if id != c.Id {
+func (n *NetworkDealer) Connectpeers(peerid int, idaddrmap map[int]string, idportmap map[int]int, pubstringsmap map[int]string) error {
 
-			writer, err := n.Connect(c.IdportMap[id], addr, c.Pubkeyothersmap[id])
+	for id, addr := range idaddrmap {
+		if id != peerid {
+
+			writer, err := n.Connect(idportmap[id], addr, pubstringsmap[id])
 			if err != nil {
 				return err
 			}
-			log.Println("connect to ", addr, c.IdportMap[id], " success")
-			n.connPool[addr+strconv.Itoa(c.IdportMap[id])] = &conn{
+			log.Println("connect to ", addr, idportmap[id], " success")
+			n.connPool[addr+strconv.Itoa(idportmap[id])] = &conn{
 				w: writer,
 
-				dest: addr + strconv.Itoa(c.IdportMap[id]),
+				dest: addr + strconv.Itoa(idportmap[id]),
 
 				encode: codec.NewEncoder(writer, &codec.MsgpackHandle{}),
 			}

@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-type P2pconfig struct {
+type Config struct {
 	Ipaddress string
 	Port      int
 	Id        int
@@ -21,13 +21,14 @@ type P2pconfig struct {
 	Pubkey          string
 	Pubkeyothersmap map[int]string
 
-	IdportMap map[int]int
-	IdaddrMap map[int]string
+	IdportMap   map[int]int
+	IdaddrMap   map[int]string
+	PubkeyIdMap map[crypto.PubKey]int
 
 	Timeout time.Duration
 }
 
-func Loadconfig(filepath string) *P2pconfig {
+func Loadconfig(filepath string) *Config {
 	// find the number index in string
 
 	var fileindex int
@@ -117,7 +118,7 @@ func Loadconfig(filepath string) *P2pconfig {
 		panic(err)
 	}
 
-	//fmt.Println(pubkeybytes)
+	//fmt.Println(privkey)
 	// convert the bytes into private key and public key
 	pubkeysmap := make(map[int]string, nodeNumber)
 	privkeyobj, err := crypto.UnmarshalPrivateKey(privkeybytes)
@@ -140,7 +141,7 @@ func Loadconfig(filepath string) *P2pconfig {
 		}
 	}
 
-	return &P2pconfig{
+	return &Config{
 		Ipaddress:       idIPMap[fileindex],
 		Port:            idP2PPortMap[fileindex],
 		Id:              fileindex,

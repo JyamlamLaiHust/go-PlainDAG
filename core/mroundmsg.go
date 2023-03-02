@@ -77,9 +77,6 @@ func (m *Mroundmsg) HavePath(msg Message, msgbyrounds []*MSGByRound, targetmsgro
 
 }
 
-func (m *Mroundmsg) SetSource(dest string) {
-	m.Source = dest
-}
 func NewMroundmsg(rn uint32, refs []Ref, source string) (*Mroundmsg, error) {
 	m := Mroundmsg{
 		Rn:         rn,

@@ -1,28 +1,18 @@
 package main
 
-import (
-	"flag"
-	"strconv"
-	"time"
-
-	"github.com/PlainDAG/go-PlainDAG/core"
-)
+import "github.com/PlainDAG/go-PlainDAG/core"
 
 func main() {
-	index := flag.Int("f", 0, "config file path")
-	flag.Parse()
-	//convert int to string
-	filepath := "node" + strconv.Itoa(*index)
-	n := core.NewNode(filepath)
 
 	//fmt.Println(n.H.ID().Pretty())
-	time.Sleep(10 * time.Second)
-	n.ConnecttoOthers()
 
+	//n.PrintConnPool()
+	n, err := core.StartandConnect()
+	if err != nil {
+		panic(err)
+	}
 	go n.SendForever()
 	go n.HandleMsgForever()
-	//n.PrintConnPool()
-
 	select {}
 
 	// mbr := core.MSGByRound{
