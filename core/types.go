@@ -2,8 +2,6 @@ package core
 
 import (
 	"reflect"
-
-	"github.com/libp2p/go-libp2p/core/crypto"
 )
 
 const (
@@ -25,10 +23,10 @@ type Lroundmsg struct {
 // Ref is used to refer a message, and a index field is added to make fast the searching procedure
 // Honestly adding this index field is not recommended because not all nodes have the same index-pubkey mapping
 type Mroundmsg struct {
-	Rn         uint32        `json:"rn"`
-	References []Ref         `json:"references"`
-	Source     crypto.PubKey `json:"source"`
-	Hash       []byte        `json:hash`
+	Rn         uint32 `json:"rn"`
+	References []Ref  `json:"references"`
+	Source     []byte `json:"source"`
+	Hash       []byte `json:hash`
 }
 
 type Ref struct {
@@ -45,6 +43,7 @@ type Message interface {
 
 	GetRN() uint32
 	GetHash() []byte
+	VerifySig(*Node, []byte) (bool, error)
 }
 
 var fmsg Froundmsg

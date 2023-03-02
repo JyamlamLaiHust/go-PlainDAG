@@ -7,12 +7,8 @@ import (
 	"fmt"
 )
 
-// func (m *Mroundmsg) MarshalJSON() ([]byte, error) {
-
-// 	return nil, nil
-// }
-
 func (m *Mroundmsg) DisplayinJson() error {
+
 	b, _ := json.Marshal(m)
 
 	fmt.Println(string(b))
@@ -34,6 +30,20 @@ func (m *Mroundmsg) GetRefs() []Ref {
 
 func (m *Mroundmsg) GetHash() []byte {
 	return m.Hash
+}
+
+func (m *Mroundmsg) VerifySig(n *Node, sig []byte) (bool, error) {
+	bytes, err := json.Marshal(m)
+	if err != nil {
+		panic(err)
+	}
+	//fmt.Println(m.Source)
+	publickey := n.cfg.StringpubkeyMap[string(m.Source)]
+	if publickey == nil {
+		panic("none")
+	}
+
+	return publickey.Verify(bytes, sig)
 }
 
 // msg is the target message to be checked
@@ -77,11 +87,13 @@ func (m *Mroundmsg) HavePath(msg Message, msgbyrounds []*MSGByRound, targetmsgro
 
 }
 
-func NewMroundmsg(rn uint32, refs []Ref, source string) (*Mroundmsg, error) {
+func NewMroundmsg(rn uint32, refs []Ref, source []byte) (*Mroundmsg, error) {
 	m := Mroundmsg{
 		Rn:         rn,
 		References: refs,
+		Source:     source,
 	}
+
 	var err error
 	m.Hash, err = m.Encode()
 	return &m, err

@@ -3,7 +3,6 @@ package p2p
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 
 	"errors"
 	"fmt"
@@ -71,10 +70,11 @@ func (n *NetworkDealer) Listen() {
 		log.Println("Received a connection from ", s.Conn().RemotePeer().String())
 
 		r := bufio.NewReader(s)
-		pubkey, err := s.Conn().RemotePeer().ExtractPublicKey()
-		if err != nil {
-			log.Println("error extracting public key: ", err)
-		}
+		peerId := s.Conn().RemotePeer()
+		pubkey := n.H.Peerstore().PubKey(peerId)
+		// if err != nil {
+		// 	log.Println("error extracting public key: ", err)
+		// }
 		n.HandleConn(r, pubkey)
 
 	}
@@ -109,30 +109,30 @@ func (n *NetworkDealer) HandleConn(r *bufio.Reader, sourcepubkey crypto.PubKey) 
 		// 	msgBody = msg
 		// }
 		msgBody := reflect.New(n.reflectedTypesMap[rpcType]).Interface()
-		// if err := dec.Decode(&msgBody); err != nil {
-		// 	log.Println("error decoding msg: ", err)
-		// }
-
-		var msgBodyBytes []byte
-		if err := dec.Decode(&msgBodyBytes); err != nil {
-			log.Println("error decoding msgBodyBytes: ", err)
+		if err := dec.Decode(&msgBody); err != nil {
+			log.Println("error decoding msg: ", err)
 		}
 
-		json.Unmarshal(msgBodyBytes, &msgBody)
+		// var msgBodyBytes []byte
+		// if err := dec.Decode(&msgBodyBytes); err != nil {
+		// 	log.Println("error decoding msgBodyBytes: ", err)
+		// }
+
+		// json.Unmarshal(msgBodyBytes, &msgBody)
 
 		var sig []byte
 		if err := dec.Decode(&sig); err != nil {
 			log.Println("error decoding sig: ", err)
 		}
-		var sigok bool
-		sigok, err = sourcepubkey.Verify(msgBodyBytes, sig)
-		if err != nil {
-			panic(err)
-		}
-		if !sigok {
-			log.Println("signature verification failed")
-			return
-		}
+		// var sigok bool
+		// sigok, err = sourcepubkey.Verify(msgBodyBytes, sig)
+		// if err != nil {
+		// 	panic(err)
+		// }
+		// if !sigok {
+		// 	log.Println("signature verification failed")
+		// 	return
+		// }
 		MsgWithSigandSrc := MsgWithSigandSrc{
 			Msg:    msgBody,
 			Sig:    sig,
@@ -144,7 +144,6 @@ func (n *NetworkDealer) HandleConn(r *bufio.Reader, sourcepubkey crypto.PubKey) 
 		case <-n.shutdownCh:
 			log.Println("shutting down")
 		}
-		// write a code to know which kind of struct the pointer is pointed to?
 
 		//knowing the type of the struct, how to construct it with a known byte array?
 		// msg := reflect.New(n.reflectedTypesMap[rpcType]).Interface()

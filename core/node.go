@@ -9,6 +9,7 @@ import (
 
 	"github.com/PlainDAG/go-PlainDAG/config"
 	"github.com/PlainDAG/go-PlainDAG/p2p"
+	"github.com/libp2p/go-libp2p/core/crypto"
 )
 
 type Node struct {
@@ -36,21 +37,21 @@ func (n *Node) HandleMsgForever() {
 			switch msgAsserted := msg.Msg.(type) {
 			case Message:
 
-				go n.HandleMsg(msgAsserted)
+				go n.HandleMsg(msgAsserted, msg.Sig, msg.Source)
 			}
 		}
 
 	}
 }
 
-func (n *Node) HandleMsg(msg Message) {
-	if err := n.handler.HandleMsg(msg); err != nil {
+func (n *Node) HandleMsg(msg Message, sig []byte, source crypto.PubKey) {
+	if err := n.handler.HandleMsg(msg, sig); err != nil {
 		panic(err)
 	}
 }
 
 func (n *Node) ConnecttoOthers() error {
-	err := n.network.Connectpeers(n.cfg.Id, n.cfg.IdaddrMap, n.cfg.IdportMap, n.cfg.Pubkeyothersmap)
+	err := n.network.Connectpeers(n.cfg.Id, n.cfg.IdaddrMap, n.cfg.IdportMap, n.cfg.IdPubkeymap)
 	if err != nil {
 		return err
 	}
@@ -73,7 +74,7 @@ func (n *Node) SendMsgToAll(messagetype uint8, msg interface{}, sig []byte) erro
 
 func (n *Node) SendForever() {
 	for {
-		time.Sleep(10 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 
 		ref := Ref{
 			Index: 1,
@@ -82,10 +83,16 @@ func (n *Node) SendForever() {
 
 		refs := make([]Ref, 0)
 		refs = append(refs, ref)
-		msg, err := NewMroundmsg(1, refs, n.cfg.Pubkey)
+
+		msg, err := NewMroundmsg(1, refs, n.cfg.Pubkeyraw)
 		if err != nil {
 			panic(err)
 		}
+		// for _, peer := range n.network.H.Peerstore().Peers() {
+		// 	s := peer.Pretty()
+
+		// 	fmt.Println(s)
+		// }
 		msgbytes, err := json.Marshal(msg)
 		if err != nil {
 			panic(err)
@@ -95,30 +102,12 @@ func (n *Node) SendForever() {
 		if err != nil {
 			panic(err)
 		}
-		err = n.SendMsgToAll(2, msgbytes, sig)
+		err = n.SendMsgToAll(2, msg, sig)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-}
-
-func NewNode(filepath string) (*Node, error) {
-	c := config.Loadconfig(filepath)
-	n, err := p2p.Startpeer(c.Port, c.Prvkey, ReflectedTypesMap)
-	if err != nil {
-		return nil, err
-	}
-
-	node := Node{
-		bc:      NewBlockchain(),
-		network: n,
-	}
-	node.cfg = c
-	node.handler = NewStatichandler(&node)
-	node.currentround.Store(0)
-
-	return &node, err
 }
 
 func StartandConnect() (*Node, error) {
@@ -130,11 +119,14 @@ func StartandConnect() (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	time.Sleep(10 * time.Second)
+	time.Sleep(15 * time.Second)
 	err = n.ConnecttoOthers()
 	if err != nil {
 		return nil, err
 	}
+	n.constructpubkeyMap()
+	// get the pubkey of my own host
+
 	return n, nil
 
 }

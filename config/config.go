@@ -17,13 +17,20 @@ type Config struct {
 	Nodename  string
 	IdnameMap map[int]string
 
-	Prvkey          crypto.PrivKey
-	Pubkey          string
-	Pubkeyothersmap map[int]string
-
+	Prvkey      crypto.PrivKey
+	Pubkey      crypto.PubKey
+	Pubkeyraw   []byte
+	IdPubkeymap map[int]string
+	// this map references the id.pretty() to id
+	PubkeyIdMap map[string]int
 	IdportMap   map[int]int
 	IdaddrMap   map[int]string
-	PubkeyIdMap map[crypto.PubKey]int
+
+	//the first  map is to store the public key of of each node, the key string is the string(pubkey) field
+
+	StringpubkeyMap map[string]crypto.PubKey
+	// the second map is to store the index of each node and reference the public key to id. the key string is the string(pubkey) field
+	StringIdMap map[string]int
 
 	Timeout time.Duration
 }
@@ -110,7 +117,7 @@ func Loadconfig(filepath string) *Config {
 	}
 	// extract private key and public key and pubkeysmap using config
 	privkey := viperRead.GetString("private_key")
-	pubkey := viperRead.GetString("public_key")
+
 	pubkeyothersmap := viperRead.GetStringMap("id_public_key")
 	// convert the strings obove into bytes
 	privkeybytes, err := crypto.ConfigDecodeKey(privkey)
@@ -140,18 +147,23 @@ func Loadconfig(filepath string) *Config {
 			panic("public_key_others in the config file cannot be decoded correctly")
 		}
 	}
+	pubkeyidmap := make(map[string]int, nodeNumber)
+	for id, pubkeyothers := range pubkeysmap {
+		pubkeyidmap[pubkeyothers] = id
+	}
 
 	return &Config{
-		Ipaddress:       idIPMap[fileindex],
-		Port:            idP2PPortMap[fileindex],
-		Id:              fileindex,
-		Nodename:        idNameMap[fileindex],
-		IdnameMap:       idNameMap,
-		IdportMap:       idP2PPortMap,
-		IdaddrMap:       idIPMap,
-		Timeout:         time.Duration(viperRead.GetInt("timeout")) * time.Second,
-		Prvkey:          privkeyobj,
-		Pubkey:          pubkey,
-		Pubkeyothersmap: pubkeysmap,
+		Ipaddress: idIPMap[fileindex],
+		Port:      idP2PPortMap[fileindex],
+		Id:        fileindex,
+		Nodename:  idNameMap[fileindex],
+		IdnameMap: idNameMap,
+		IdportMap: idP2PPortMap,
+		IdaddrMap: idIPMap,
+		Timeout:   time.Duration(viperRead.GetInt("timeout")) * time.Second,
+		Prvkey:    privkeyobj,
+
+		IdPubkeymap: pubkeysmap,
+		PubkeyIdMap: pubkeyidmap,
 	}
 }

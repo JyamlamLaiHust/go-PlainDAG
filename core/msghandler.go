@@ -1,7 +1,9 @@
 package core
 
+import "errors"
+
 type Messagehandler interface {
-	HandleMsg(msg Message) error
+	HandleMsg(msg Message, sig []byte) error
 }
 
 type Statichandler struct {
@@ -9,8 +11,14 @@ type Statichandler struct {
 	futureVers map[int]*MSGByRound
 }
 
-func (sh *Statichandler) HandleMsg(msg Message) error {
-
+func (sh *Statichandler) HandleMsg(msg Message, sig []byte) error {
+	b, err := msg.VerifySig(sh.n, sig)
+	if err != nil {
+		return err
+	}
+	if !b {
+		return errors.New("signature verification failed")
+	}
 	msg.DisplayinJson()
 	return nil
 }
