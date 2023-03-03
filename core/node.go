@@ -1,9 +1,10 @@
 package core
 
 import (
-	"encoding/json"
 	"flag"
+	"log"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -21,10 +22,34 @@ type Node struct {
 	currentround atomic.Uint32 `json:"currentround"`
 
 	cfg *config.Config
+
+	isSent     map[int]bool
+	isSentLock sync.Mutex
 }
 
-func (n *Node) GenTrans() {
+func (n *Node) GenTrans(rn int) {
+	n.isSentLock.Lock()
+	if n.isSent[rn] {
+		n.isSentLock.Unlock()
+		return
+	}
+	n.isSent[rn] = true
+	n.isSentLock.Unlock()
+	log.Println("generate transaction for round" + strconv.Itoa(rn))
+	//generate transaction
 
+}
+
+func (n *Node) GenFroundMsg(rn int) (*Froundmsg, error) {
+	return nil, nil
+}
+
+func (n *Node) GenLroundMsg(rn int) (*Lroundmsg, error) {
+	return nil, nil
+}
+
+func (n *Node) GenBasicMsg(rn int) (*BasicMsg, error) {
+	return nil, nil
 }
 
 func (n *Node) HandleMsgForever() {
@@ -76,33 +101,33 @@ func (n *Node) SendForever() {
 	for {
 		time.Sleep(1000 * time.Millisecond)
 
-		H := []byte{1, 2, 3}
+		// H := []byte{1, 2, 3}
 
-		refs := make([][]byte, 0)
-		refs = append(refs, H)
+		// refs := make([][]byte, 0)
+		// refs = append(refs, H)
 
-		msg, err := NewMroundmsg(1, refs, n.cfg.Pubkeyraw)
-		if err != nil {
-			panic(err)
-		}
-		// for _, peer := range n.network.H.Peerstore().Peers() {
-		// 	s := peer.Pretty()
-
-		// 	fmt.Println(s)
+		// msg, err := NewMroundmsg(1, refs, n.cfg.Pubkeyraw)
+		// if err != nil {
+		// 	panic(err)
 		// }
-		msgbytes, err := json.Marshal(msg)
-		if err != nil {
-			panic(err)
-		}
+		// // for _, peer := range n.network.H.Peerstore().Peers() {
+		// // 	s := peer.Pretty()
 
-		sig, err := n.cfg.Prvkey.Sign(msgbytes)
-		if err != nil {
-			panic(err)
-		}
-		err = n.SendMsgToAll(2, msg, sig)
-		if err != nil {
-			panic(err)
-		}
+		// // 	fmt.Println(s)
+		// // }
+		// msgbytes, err := json.Marshal(msg)
+		// if err != nil {
+		// 	panic(err)
+		// }
+
+		// sig, err := n.cfg.Prvkey.Sign(msgbytes)
+		// if err != nil {
+		// 	panic(err)
+		// }
+		// err = n.SendMsgToAll(2, msg, sig)
+		// if err != nil {
+		// 	panic(err)
+		// }
 	}
 
 }
@@ -116,6 +141,7 @@ func StartandConnect() (*Node, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	time.Sleep(15 * time.Second)
 	err = n.ConnecttoOthers()
 	if err != nil {

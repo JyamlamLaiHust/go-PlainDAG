@@ -6,27 +6,32 @@ import (
 
 const (
 	FMsgTag uint8 = iota
+
+	BMsgTag
 	LMsgTag
-	MMsgTag
 )
 
-const N = 6
+const f = 1
+const rPerwave = 3
+
+var messageconst []byte
 
 type Froundmsg struct {
-	Mroundmsg
+	BasicMsg
 }
 
 type Lroundmsg struct {
-	Mroundmsg
+	BasicMsg
 }
 
 // Ref is used to refer a message, and a index field is added to make fast the searching procedure
 // Honestly adding this index field is not recommended because not all nodes have the same index-pubkey mapping
-type Mroundmsg struct {
-	Rn         uint32   `json:"rn"`
+type BasicMsg struct {
+	Rn         int      `json:"rn"`
 	References [][]byte `json:"references"`
 	Source     []byte   `json:"source"`
 	Hash       []byte   `json:hash`
+	plaintext  []byte   //`json:plaintext`
 }
 
 // type Ref struct {
@@ -41,16 +46,17 @@ type Message interface {
 	GetRefs() [][]byte
 	HavePath(msg Message, msgbyrounds []*Round, targetmsground *Round) (bool, error)
 
-	GetRN() uint32
+	GetRN() int
 	GetHash() []byte
 	VerifySig(*Node, []byte) (bool, error)
+	VerifyFields(*Node) error
 }
 
 var fmsg Froundmsg
 var lmsg Lroundmsg
-var mmsg Mroundmsg
+var bmsg BasicMsg
 var ReflectedTypesMap = map[uint8]reflect.Type{
 	FMsgTag: reflect.TypeOf(fmsg),
 	LMsgTag: reflect.TypeOf(lmsg),
-	MMsgTag: reflect.TypeOf(mmsg),
+	BMsgTag: reflect.TypeOf(bmsg),
 }

@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 )
 
-func (m *Mroundmsg) DisplayinJson() error {
+func (m *BasicMsg) DisplayinJson() error {
 
 	b, _ := json.Marshal(m)
 
@@ -15,24 +16,24 @@ func (m *Mroundmsg) DisplayinJson() error {
 	return nil
 }
 
-func (m *Mroundmsg) Encode() ([]byte, error) {
+func (m *BasicMsg) Encode() ([]byte, error) {
 	h := sha256.Sum256([]byte(fmt.Sprintf("%v", m)))
 	return h[:], nil
 }
 
-func (m *Mroundmsg) GetRN() uint32 {
+func (m *BasicMsg) GetRN() int {
 	return m.Rn
 }
 
-func (m *Mroundmsg) GetRefs() [][]byte {
+func (m *BasicMsg) GetRefs() [][]byte {
 	return m.References
 }
 
-func (m *Mroundmsg) GetHash() []byte {
+func (m *BasicMsg) GetHash() []byte {
 	return m.Hash
 }
 
-func (m *Mroundmsg) VerifySig(n *Node, sig []byte) (bool, error) {
+func (m *BasicMsg) VerifySig(n *Node, sig []byte) (bool, error) {
 	bytes, err := json.Marshal(m)
 	if err != nil {
 		panic(err)
@@ -50,11 +51,11 @@ func (m *Mroundmsg) VerifySig(n *Node, sig []byte) (bool, error) {
 // msgbyrounds are the messages whose round number is less than message m but larger than the target message
 // targetmsground is the messageround whose round number is equal to the target message
 
-func (m *Mroundmsg) HavePath(msg Message, rounds []*Round, targetround *Round) (bool, error) {
+func (m *BasicMsg) HavePath(msg Message, rounds []*Round, targetround *Round) (bool, error) {
 	// hashes, indexes := m.GetRefs()
 	refs := m.GetRefs()
 	for _, round := range rounds {
-		msgs, err := round.GetMsgByRefsBatch(refs)
+		msgs, err := round.getMsgByRefsBatch(refs)
 		if err != nil {
 			panic(err)
 		}
@@ -67,7 +68,6 @@ func (m *Mroundmsg) HavePath(msg Message, rounds []*Round, targetround *Round) (
 		}
 
 		trueRefs := make([][]byte, 0)
-		// convert string to byte array
 
 		for k, v := range uniqueRefs {
 			if v {
@@ -78,7 +78,7 @@ func (m *Mroundmsg) HavePath(msg Message, rounds []*Round, targetround *Round) (
 		refs = trueRefs
 
 	}
-	msgtocheck, err := targetround.GetMsgByRefsBatch(refs)
+	msgtocheck, err := targetround.getMsgByRefsBatch(refs)
 	if err != nil {
 		panic(err)
 	}
@@ -91,11 +91,36 @@ func (m *Mroundmsg) HavePath(msg Message, rounds []*Round, targetround *Round) (
 
 }
 
-func NewMroundmsg(rn uint32, refs [][]byte, source []byte) (*Mroundmsg, error) {
-	m := Mroundmsg{
+func (m *BasicMsg) VerifyFields(n *Node) error {
+	if len(m.References) < 4*f+1 {
+		return errors.New("not enough references")
+	}
+	if n.cfg.StringpubkeyMap[string(m.Source)] == nil {
+		return errors.New("no such public key")
+	}
+	newm := BasicMsg{
+		Rn:         m.Rn,
+		References: m.References,
+		Source:     m.Source,
+	}
+	hash, err := newm.Encode()
+	if err != nil {
+		return err
+	}
+	if !bytes.Equal(hash, m.Hash) {
+		return errors.New("hash not match")
+	}
+	return nil
+
+}
+
+func NewBasicMsg(rn int, refs [][]byte, source []byte) (*BasicMsg, error) {
+
+	m := BasicMsg{
 		Rn:         rn,
 		References: refs,
 		Source:     source,
+		plaintext:  messageconst,
 	}
 
 	var err error
