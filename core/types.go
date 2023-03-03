@@ -48,6 +48,7 @@ type Message interface {
 
 	GetRN() int
 	GetHash() []byte
+	GetSource() []byte
 	VerifySig(*Node, []byte) (bool, error)
 	VerifyFields(*Node) error
 }

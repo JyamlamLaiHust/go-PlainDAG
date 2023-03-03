@@ -33,6 +33,10 @@ func (m *BasicMsg) GetHash() []byte {
 	return m.Hash
 }
 
+func (m *BasicMsg) GetSource() []byte {
+	return m.Source
+}
+
 func (m *BasicMsg) VerifySig(n *Node, sig []byte) (bool, error) {
 	bytes, err := json.Marshal(m)
 	if err != nil {
@@ -102,6 +106,7 @@ func (m *BasicMsg) VerifyFields(n *Node) error {
 		Rn:         m.Rn,
 		References: m.References,
 		Source:     m.Source,
+		plaintext:  messageconst,
 	}
 	hash, err := newm.Encode()
 	if err != nil {

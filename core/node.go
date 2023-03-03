@@ -1,6 +1,8 @@
 package core
 
 import (
+	"encoding/json"
+	"errors"
 	"flag"
 	"log"
 	"strconv"
@@ -19,37 +21,69 @@ type Node struct {
 	network *p2p.NetworkDealer
 	handler Messagehandler
 	//thread-safe integer
-	currentround atomic.Uint32 `json:"currentround"`
+	currentround atomic.Int64 `json:"currentround"`
 
 	cfg *config.Config
 
-	isSent     map[int]bool
+	isSentMap  map[int]bool
 	isSentLock sync.Mutex
 }
 
-func (n *Node) GenTrans(rn int) {
+func (n *Node) genTrans(rn int) (Message, error) {
 	n.isSentLock.Lock()
-	if n.isSent[rn] {
+	if n.isSentMap[rn] {
 		n.isSentLock.Unlock()
-		return
+		return nil, errors.New("transaction already generated for round" + strconv.Itoa(rn))
 	}
-	n.isSent[rn] = true
+	n.isSentMap[rn] = true
 	n.isSentLock.Unlock()
 	log.Println("generate transaction for round" + strconv.Itoa(rn))
 	//generate transaction
-
+	return n.genBasicMsg(rn)
 }
 
-func (n *Node) GenFroundMsg(rn int) (*Froundmsg, error) {
+func (n *Node) genFroundMsg(rn int) (*Froundmsg, error) {
 	return nil, nil
 }
 
-func (n *Node) GenLroundMsg(rn int) (*Lroundmsg, error) {
+func (n *Node) genLroundMsg(rn int) (*Lroundmsg, error) {
 	return nil, nil
 }
 
-func (n *Node) GenBasicMsg(rn int) (*BasicMsg, error) {
-	return nil, nil
+func (n *Node) genBasicMsg(rn int) (*BasicMsg, error) {
+	lastRound := n.bc.GetRound(rn - 1)
+	if lastRound == nil {
+		return nil, errors.New("last round is nil")
+	}
+	//generate transaction
+	msgsByte := lastRound.retMsgsToRef()
+	basicMsg, err := NewBasicMsg(rn, msgsByte, n.cfg.Pubkeyraw)
+	if err != nil {
+		return nil, err
+	}
+	return basicMsg, nil
+
+}
+
+func (n *Node) paceToNextRound() (Message, error) {
+	//generate transaction
+	msg, err := n.genTrans(int(n.currentround.Load()) + 1)
+
+	if err != nil {
+		return nil, err
+	}
+	newR, err := newRound(int(n.currentround.Load())+1, msg, n.cfg.PubkeyIdMap)
+	if err != nil {
+		return nil, err
+	}
+	n.bc.AddRound(newR)
+
+	n.currentround.Add(1)
+	msgsNextRound := n.handler.getMsgByRound(int(n.currentround.Load()))
+	for _, msg := range msgsNextRound {
+		go n.handler.tryHandle(msg)
+	}
+	return msg, nil
 }
 
 func (n *Node) HandleMsgForever() {
@@ -62,20 +96,20 @@ func (n *Node) HandleMsgForever() {
 			switch msgAsserted := msg.Msg.(type) {
 			case Message:
 
-				go n.HandleMsg(msgAsserted, msg.Sig, msg.Source)
+				go n.handleMsg(msgAsserted, msg.Sig, msg.Source)
 			}
 		}
 
 	}
 }
 
-func (n *Node) HandleMsg(msg Message, sig []byte, source crypto.PubKey) {
-	if err := n.handler.HandleMsg(msg, sig); err != nil {
+func (n *Node) handleMsg(msg Message, sig []byte, source crypto.PubKey) {
+	if err := n.handler.handleMsg(msg, sig); err != nil {
 		panic(err)
 	}
 }
 
-func (n *Node) ConnecttoOthers() error {
+func (n *Node) connecttoOthers() error {
 	err := n.network.Connectpeers(n.cfg.Id, n.cfg.IdaddrMap, n.cfg.IdportMap, n.cfg.IdPubkeymap)
 	if err != nil {
 		return err
@@ -99,8 +133,24 @@ func (n *Node) SendMsgToAll(messagetype uint8, msg interface{}, sig []byte) erro
 
 func (n *Node) SendForever() {
 	for {
-		time.Sleep(1000 * time.Millisecond)
 
+		msg, err := n.paceToNextRound()
+		if err != nil {
+			panic(err)
+		}
+		msg.DisplayinJson()
+		msgbytes, err := json.Marshal(msg)
+		if err != nil {
+			panic(err)
+		}
+
+		sig, err := n.cfg.Prvkey.Sign(msgbytes)
+		if err != nil {
+			panic(err)
+		}
+		n.SendMsgToAll(1, msg, sig)
+
+		time.Sleep(10000 * time.Millisecond)
 		// H := []byte{1, 2, 3}
 
 		// refs := make([][]byte, 0)
@@ -143,7 +193,7 @@ func StartandConnect() (*Node, error) {
 	}
 
 	time.Sleep(15 * time.Second)
-	err = n.ConnecttoOthers()
+	err = n.connecttoOthers()
 	if err != nil {
 		return nil, err
 	}

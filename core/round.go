@@ -61,12 +61,13 @@ func (r *Round) getMsgByRefsBatch(hashes [][]byte) ([]Message, error) {
 
 func (r *Round) checkCanAttach(m Message) ([][]byte, bool) {
 	r.messageLock.RLock()
-	defer r.messageLock.RUnlock()
+
 	refs := m.GetRefs()
 	searchMap := make(map[string]bool)
 	for _, ref := range refs {
 		searchMap[string(ref)] = true
 	}
+
 	for _, msg := range r.msgs {
 		for _, m := range msg {
 			if searchMap[string(m.GetHash())] {
@@ -74,6 +75,7 @@ func (r *Round) checkCanAttach(m Message) ([][]byte, bool) {
 			}
 		}
 	}
+	r.messageLock.RUnlock()
 	if len(searchMap) == 0 {
 		return nil, true
 	}
@@ -81,17 +83,18 @@ func (r *Round) checkCanAttach(m Message) ([][]byte, bool) {
 	for k, _ := range searchMap {
 		missingRefs = append(missingRefs, []byte(k))
 	}
+
 	return missingRefs, false
 }
 
-func (r *Round) tryAttach(m Message, currentRound *Round, pubkeyIdMap map[string]int) {
+func (r *Round) tryAttach(m Message, currentRound *Round, id int) {
 	// CheckCanAttack checks whether all the msgs message m references are stored in the last round
 
 	r.checkMapLock.Lock()
 	missingrefs, canattach := r.checkCanAttach(m)
 	// if true, attack msg m to the current round
 	if canattach {
-		currentRound.attachMsg(m, pubkeyIdMap)
+		currentRound.attachMsg(m, id)
 	}
 	// r.checkMapLock.Lock()
 	for _, ref := range missingrefs {
@@ -119,22 +122,35 @@ func (r *Round) tryAttach(m Message, currentRound *Round, pubkeyIdMap map[string
 	defer currentRound.checkMapLock.Unlock()
 	if _, ok := currentRound.checkMap[string(m.GetHash())]; !ok {
 		//currentRound.checkMap[string(m.GetHash())] = make(chan bool)
-		currentRound.attachMsg(m, pubkeyIdMap)
+		currentRound.attachMsg(m, id)
 		return
 	}
 	currentRound.checkMap[string(m.GetHash())] <- true
-	currentRound.attachMsg(m, pubkeyIdMap)
+	currentRound.attachMsg(m, id)
 
 }
 
-func (r *Round) attachMsg(m Message, pubkeyIdmap map[string]int) {
+func (r *Round) attachMsg(m Message, id int) {
 	r.messageLock.Lock()
-	defer r.messageLock.Unlock()
-	s := pubkeyIdmap[string(m.GetHash())]
-	r.msgs[s] = append(r.msgs[s], m)
+
+	//fmt.Println(id)
+	r.msgs[id] = append(r.msgs[id], m)
+	r.messageLock.Unlock()
 
 }
 
+func (r *Round) retMsgsToRef() [][]byte {
+	msgsByte := make([][]byte, 0)
+	r.messageLock.RLock()
+	for _, msg := range r.msgs {
+		if msg == nil {
+			continue
+		}
+		msgsByte = append(msgsByte, msg[0].GetHash())
+	}
+	r.messageLock.RUnlock()
+	return msgsByte
+}
 func newRound(rn int, m Message, pubkeyIdMap map[string]int) (*Round, error) {
 	if m.GetRN() != rn {
 		return nil, errors.New("round number not match")
@@ -143,7 +159,7 @@ func newRound(rn int, m Message, pubkeyIdMap map[string]int) (*Round, error) {
 	for i := 0; i < 5*f+1; i++ {
 		msglists[i] = make([]Message, 0)
 	}
-	msglists[pubkeyIdMap[string(m.GetHash())]] = append(msglists[pubkeyIdMap[string(m.GetHash())]], m)
+	msglists[pubkeyIdMap[string(m.GetSource())]] = append(msglists[pubkeyIdMap[string(m.GetSource())]], m)
 	return &Round{
 		msgs:         msglists,
 		roundNumber:  rn,

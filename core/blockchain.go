@@ -25,6 +25,7 @@ func (bc *Blockchain) GetRound(round int) *Round {
 	bc.bcLock.RLock()
 	defer bc.bcLock.RUnlock()
 	return bc.vertices[round]
+
 }
 
 func (bc *Blockchain) AddRound(round *Round) {
