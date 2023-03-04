@@ -120,12 +120,16 @@ func (m *BasicMsg) VerifyFields(n *Node) error {
 }
 
 func NewBasicMsg(rn int, refs [][]byte, source []byte) (*BasicMsg, error) {
-
+	var message []byte
+	for i := 0; i < 10; i++ {
+		message = append(message, messageconst...)
+	}
+	//message = append(message, messageconst...)
 	m := BasicMsg{
 		Rn:         rn,
 		References: refs,
 		Source:     source,
-		plaintext:  messageconst,
+		plaintext:  message,
 	}
 
 	var err error

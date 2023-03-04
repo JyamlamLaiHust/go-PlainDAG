@@ -3,7 +3,6 @@ package core
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -97,13 +96,26 @@ func (r *Round) tryAttach(m Message, currentRound *Round, id int) {
 	// if true, attack msg m to the current round
 	if canattach {
 		currentRound.attachMsg(m, id)
+		if _, ok := currentRound.checkMap[string(m.GetHash())]; !ok {
+			//currentRound.checkMap[string(m.GetHash())] = make(chan bool)
+			r.checkMapLock.Unlock()
+			return
+		}
+		currentRound.checkMap[string(m.GetHash())] <- true
 		r.checkMapLock.Unlock()
+		go func() {
+			time.Sleep(2 * time.Second)
+			currentRound.checkMapLock.Lock()
+
+			close(currentRound.checkMap[string(m.GetHash())])
+			currentRound.checkMapLock.Unlock()
+		}()
 		return
 	}
 	// r.checkMapLock.Lock()
 	for _, ref := range missingrefs {
 		if _, ok := r.checkMap[string(ref)]; !ok {
-			r.checkMap[string(ref)] = make(chan bool)
+			r.checkMap[string(ref)] = make(chan bool, 1)
 		}
 	}
 	r.checkMapLock.Unlock()
@@ -127,10 +139,11 @@ func (r *Round) tryAttach(m Message, currentRound *Round, id int) {
 	if _, ok := currentRound.checkMap[string(m.GetHash())]; !ok {
 		//currentRound.checkMap[string(m.GetHash())] = make(chan bool)
 		currentRound.attachMsg(m, id)
+		currentRound.checkMapLock.Unlock()
 		return
 	}
 	currentRound.checkMap[string(m.GetHash())] <- true
-	currentRound.checkMapLock.Unlock()
+
 	go func() {
 		time.Sleep(2 * time.Second)
 		currentRound.checkMapLock.Lock()
@@ -139,7 +152,8 @@ func (r *Round) tryAttach(m Message, currentRound *Round, id int) {
 		currentRound.checkMapLock.Unlock()
 	}()
 	currentRound.attachMsg(m, id)
-
+	currentRound.checkMapLock.Unlock()
+	return
 }
 
 func (r *Round) attachMsg(m Message, id int) {
@@ -159,7 +173,7 @@ func (r *Round) retMsgsToRef() [][]byte {
 		if msg == nil {
 			continue
 		}
-		fmt.Println(len(msg))
+		//fmt.Println(len(msg))
 		for _, m := range msg {
 
 			if m == nil {

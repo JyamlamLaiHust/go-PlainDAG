@@ -1,10 +1,8 @@
 package core
 
 import (
-	"encoding/json"
 	"errors"
 	"flag"
-	"fmt"
 	"log"
 	"strconv"
 	"sync"
@@ -31,15 +29,10 @@ type Node struct {
 }
 
 func (n *Node) genTrans(rn int) (Message, error) {
-	n.isSentLock.Lock()
-	if n.isSentMap[rn] {
-		n.isSentLock.Unlock()
-		return nil, errors.New("transaction already generated for round" + strconv.Itoa(rn))
-	}
-	n.isSentMap[rn] = true
-	n.isSentLock.Unlock()
-	log.Println("generate transaction for round" + strconv.Itoa(rn))
-	//generate transaction
+
+	if rn%100 == 0 {
+		log.Println("generate transaction for round" + strconv.Itoa(rn))
+	} //generate transaction
 	return n.genBasicMsg(rn)
 }
 
@@ -58,34 +51,51 @@ func (n *Node) genBasicMsg(rn int) (*BasicMsg, error) {
 	}
 	//generate transaction
 	msgsByte := lastRound.retMsgsToRef()
-	fmt.Println(len(msgsByte))
+	//fmt.Println(len(msgsByte))
 	basicMsg, err := NewBasicMsg(rn, msgsByte, n.cfg.Pubkeyraw)
 	if err != nil {
 		return nil, err
 	}
+	//fmt.Println("ends here?")
 	return basicMsg, nil
 
 }
 
 func (n *Node) paceToNextRound() (Message, error) {
 	//generate transaction
-	msg, err := n.genTrans(int(n.currentround.Load()) + 1)
+	rn := int(n.currentround.Load())
+	n.handler.buildContextForRound(rn + 1)
+	msg, err := n.genTrans(rn + 1)
 
 	if err != nil {
 		return nil, err
 	}
-	newR, err := newRound(int(n.currentround.Load())+1, msg, n.cfg.Id)
+
+	newR, err := newRound(rn+1, msg, n.cfg.Id)
+
 	if err != nil {
 		return nil, err
 	}
 	n.bc.AddRound(newR)
 
 	n.currentround.Add(1)
-	msgsNextRound := n.handler.getMsgByRound(int(n.currentround.Load()))
-	for _, msg := range msgsNextRound {
-		go n.handler.tryHandle(msg)
-	}
-	return msg, nil
+	go n.handler.handleFutureVers(int(n.currentround.Load()))
+	go n.SendMsgToAll(1, msg, []byte{1})
+	// msgbytes, err := json.Marshal(msg)
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	// sig, err := n.cfg.Prvkey.Sign(msgbytes)
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	return msg, err
+}
+
+func (n *Node) WaitAtRn(rn int) {
+
 }
 
 func (n *Node) HandleMsgForever() {
@@ -134,25 +144,16 @@ func (n *Node) SendMsgToAll(messagetype uint8, msg interface{}, sig []byte) erro
 }
 
 func (n *Node) SendForever() {
+
 	for {
-
-		msg, err := n.paceToNextRound()
+		n.handler.readyForRound(int(n.currentround.Load()) + 1)
+		_, err := n.paceToNextRound()
 		if err != nil {
 			panic(err)
 		}
-		msg.DisplayinJson()
-		msgbytes, err := json.Marshal(msg)
-		if err != nil {
-			panic(err)
-		}
+		//msg.DisplayinJson()
 
-		sig, err := n.cfg.Prvkey.Sign(msgbytes)
-		if err != nil {
-			panic(err)
-		}
-		n.SendMsgToAll(1, msg, sig)
-
-		time.Sleep(10000 * time.Millisecond)
+		//time.Sleep(100 * time.Millisecond)
 		// H := []byte{1, 2, 3}
 
 		// refs := make([][]byte, 0)

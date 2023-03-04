@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 
-	"errors"
 	"fmt"
 	"log"
 	"reflect"
@@ -185,13 +184,6 @@ func PackMultiaddr(port int, addr string, pubKey string) string {
 }
 
 func (n *NetworkDealer) SendMsg(messagetype uint8, msg interface{}, sig []byte, dest string) error {
-
-	n.shutdownLock.Lock()
-	if n.shutdown {
-		n.shutdownLock.Unlock()
-		return errors.New("shut down")
-	}
-	n.shutdownLock.Unlock()
 
 	c, ok := n.connPool[dest]
 	if !ok {
