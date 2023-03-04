@@ -3,8 +3,10 @@ package core
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"strconv"
 	"sync"
+	"time"
 )
 
 type Round struct {
@@ -95,6 +97,8 @@ func (r *Round) tryAttach(m Message, currentRound *Round, id int) {
 	// if true, attack msg m to the current round
 	if canattach {
 		currentRound.attachMsg(m, id)
+		r.checkMapLock.Unlock()
+		return
 	}
 	// r.checkMapLock.Lock()
 	for _, ref := range missingrefs {
@@ -119,13 +123,21 @@ func (r *Round) tryAttach(m Message, currentRound *Round, id int) {
 	}
 	wg.Wait()
 	currentRound.checkMapLock.Lock()
-	defer currentRound.checkMapLock.Unlock()
+
 	if _, ok := currentRound.checkMap[string(m.GetHash())]; !ok {
 		//currentRound.checkMap[string(m.GetHash())] = make(chan bool)
 		currentRound.attachMsg(m, id)
 		return
 	}
 	currentRound.checkMap[string(m.GetHash())] <- true
+	currentRound.checkMapLock.Unlock()
+	go func() {
+		time.Sleep(2 * time.Second)
+		currentRound.checkMapLock.Lock()
+
+		close(currentRound.checkMap[string(m.GetHash())])
+		currentRound.checkMapLock.Unlock()
+	}()
 	currentRound.attachMsg(m, id)
 
 }
@@ -143,15 +155,24 @@ func (r *Round) retMsgsToRef() [][]byte {
 	msgsByte := make([][]byte, 0)
 	r.messageLock.RLock()
 	for _, msg := range r.msgs {
+
 		if msg == nil {
 			continue
 		}
-		msgsByte = append(msgsByte, msg[0].GetHash())
+		fmt.Println(len(msg))
+		for _, m := range msg {
+
+			if m == nil {
+				continue
+			}
+			msgsByte = append(msgsByte, m.GetHash())
+		}
+
 	}
 	r.messageLock.RUnlock()
 	return msgsByte
 }
-func newRound(rn int, m Message, pubkeyIdMap map[string]int) (*Round, error) {
+func newRound(rn int, m Message, id int) (*Round, error) {
 	if m.GetRN() != rn {
 		return nil, errors.New("round number not match")
 	}
@@ -159,7 +180,7 @@ func newRound(rn int, m Message, pubkeyIdMap map[string]int) (*Round, error) {
 	for i := 0; i < 5*f+1; i++ {
 		msglists[i] = make([]Message, 0)
 	}
-	msglists[pubkeyIdMap[string(m.GetSource())]] = append(msglists[pubkeyIdMap[string(m.GetSource())]], m)
+	msglists[id] = append(msglists[id], m)
 	return &Round{
 		msgs:         msglists,
 		roundNumber:  rn,

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"strconv"
 	"sync"
@@ -57,6 +58,7 @@ func (n *Node) genBasicMsg(rn int) (*BasicMsg, error) {
 	}
 	//generate transaction
 	msgsByte := lastRound.retMsgsToRef()
+	fmt.Println(len(msgsByte))
 	basicMsg, err := NewBasicMsg(rn, msgsByte, n.cfg.Pubkeyraw)
 	if err != nil {
 		return nil, err
@@ -72,7 +74,7 @@ func (n *Node) paceToNextRound() (Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	newR, err := newRound(int(n.currentround.Load())+1, msg, n.cfg.PubkeyIdMap)
+	newR, err := newRound(int(n.currentround.Load())+1, msg, n.cfg.Id)
 	if err != nil {
 		return nil, err
 	}
