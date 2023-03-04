@@ -52,7 +52,7 @@ func (sh *Statichandler) handleFutureVers(msg Message) bool {
 		sh.futureVerslock.Unlock()
 		return true
 	}
-
+	sh.futureVerslock.Unlock()
 	return false
 }
 func (sh *Statichandler) VerifyandCheckMsg(msg Message, sig []byte) error {
