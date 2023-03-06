@@ -37,18 +37,15 @@ func (m *BasicMsg) GetSource() []byte {
 	return m.Source
 }
 
-func (m *BasicMsg) VerifySig(n *Node, sig []byte) (bool, error) {
-	bytes, err := json.Marshal(m)
-	if err != nil {
-		panic(err)
-	}
+func (m *BasicMsg) VerifySig(n *Node, sig []byte, msgbytes []byte) (bool, error) {
+
 	//fmt.Println(m.Source)
 	publickey := n.cfg.StringpubkeyMap[string(m.Source)]
 	if publickey == nil {
 		panic("none")
 	}
 
-	return publickey.Verify(bytes, sig)
+	return publickey.Verify(msgbytes, sig)
 }
 
 // msg is the target message to be checked
@@ -102,34 +99,35 @@ func (m *BasicMsg) VerifyFields(n *Node) error {
 	if n.cfg.StringpubkeyMap[string(m.Source)] == nil {
 		return errors.New("no such public key")
 	}
-	newm := BasicMsg{
-		Rn:         m.Rn,
-		References: m.References,
-		Source:     m.Source,
-		plaintext:  messageconst,
-	}
-	hash, err := newm.Encode()
-	if err != nil {
-		return err
-	}
-	if !bytes.Equal(hash, m.Hash) {
-		return errors.New("hash not match")
-	}
+	// newm := BasicMsg{
+	// 	Rn:         m.Rn,
+	// 	References: m.References,
+	// 	Source:     m.Source,
+	// 	plaintext:  m.plaintext,
+	// }
+	// hash, err := newm.Encode()
+	// if err != nil {
+	// 	return err
+	// }
+	// if !bytes.Equal(hash, m.Hash) {
+	// 	return errors.New("hash not match")
+	// }
 	return nil
 
 }
 
 func NewBasicMsg(rn int, refs [][]byte, source []byte) (*BasicMsg, error) {
-	var message []byte
-	for i := 0; i < 10; i++ {
-		message = append(message, messageconst...)
+	plainmsgs := make([]PlainMsg, 0)
+
+	for i := 0; i < Batchsize; i++ {
+		plainmsgs = append(plainmsgs, PlainMsg{Msg: messageconst})
 	}
 	//message = append(message, messageconst...)
 	m := BasicMsg{
 		Rn:         rn,
 		References: refs,
 		Source:     source,
-		plaintext:  message,
+		plainmsg:   plainmsgs,
 	}
 
 	var err error

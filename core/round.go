@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"strconv"
 	"sync"
 	"time"
@@ -23,7 +24,13 @@ type Round struct {
 	// until all messages it references are received
 	checkMap     map[string]chan bool
 	checkMapLock sync.RWMutex
-	isFround     bool
+
+	// this map below checks if a message from a certain node has been received
+	// if true, tag this node as true to indicate that this node has sent a message in this round
+	// this is relevant to the tryhandle function in the msghandler.go when counting the 4f+1 threshold
+	isReceivedMap map[string]bool
+
+	isFround bool
 }
 
 func (r *Round) getMsgByRef(hash []byte) (Message, error) {
@@ -62,7 +69,7 @@ func (r *Round) getMsgByRefsBatch(hashes [][]byte) ([]Message, error) {
 
 func (r *Round) checkCanAttach(m Message) ([][]byte, bool) {
 	r.messageLock.RLock()
-
+	defer r.messageLock.RUnlock()
 	refs := m.GetRefs()
 	searchMap := make(map[string]bool)
 	for _, ref := range refs {
@@ -76,7 +83,7 @@ func (r *Round) checkCanAttach(m Message) ([][]byte, bool) {
 			}
 		}
 	}
-	r.messageLock.RUnlock()
+
 	if len(searchMap) == 0 {
 		return nil, true
 	}
@@ -89,20 +96,25 @@ func (r *Round) checkCanAttach(m Message) ([][]byte, bool) {
 }
 
 func (r *Round) tryAttach(m Message, currentRound *Round, id int) {
-	// CheckCanAttack checks whether all the msgs message m references are stored in the last round
+	// CheckCanAttach checks whether all the msgs message m references are stored in the last round
 
-	r.checkMapLock.Lock()
+	//currentRound.checkMapLock.Lock()
 	missingrefs, canattach := r.checkCanAttach(m)
-	// if true, attack msg m to the current round
+	//r.checkMapLock.Lock()
+	// if true, attach msg m to the current round
 	if canattach {
 		currentRound.attachMsg(m, id)
+
+		fmt.Println("can attach   " + strconv.Itoa(id))
+		currentRound.checkMapLock.Lock()
 		if _, ok := currentRound.checkMap[string(m.GetHash())]; !ok {
-			//currentRound.checkMap[string(m.GetHash())] = make(chan bool)
-			r.checkMapLock.Unlock()
-			return
+			currentRound.checkMap[string(m.GetHash())] = make(chan bool, 1)
+
+			//r.checkMapLock.Unlock()
 		}
 		currentRound.checkMap[string(m.GetHash())] <- true
-		r.checkMapLock.Unlock()
+		currentRound.checkMapLock.Unlock()
+		//r.checkMapLock.Unlock()
 		go func() {
 			time.Sleep(2 * time.Second)
 			currentRound.checkMapLock.Lock()
@@ -112,13 +124,17 @@ func (r *Round) tryAttach(m Message, currentRound *Round, id int) {
 		}()
 		return
 	}
+	r.checkMapLock.Lock()
+	fmt.Println("cant attach" + strconv.Itoa(id))
 	// r.checkMapLock.Lock()
+	//fmt.Println(1)
 	for _, ref := range missingrefs {
 		if _, ok := r.checkMap[string(ref)]; !ok {
 			r.checkMap[string(ref)] = make(chan bool, 1)
 		}
 	}
 	r.checkMapLock.Unlock()
+	//currentRound.checkMapLock.Unlock()
 	var wg sync.WaitGroup
 
 	for _, ref := range missingrefs {
@@ -126,6 +142,7 @@ func (r *Round) tryAttach(m Message, currentRound *Round, id int) {
 		rcopy := make([]byte, len(ref))
 		copy(rcopy, ref)
 		c := r.checkMap[string(rcopy)]
+
 		go func() {
 			b := <-c
 			c <- b
@@ -134,6 +151,7 @@ func (r *Round) tryAttach(m Message, currentRound *Round, id int) {
 
 	}
 	wg.Wait()
+	fmt.Println("still there?")
 	currentRound.checkMapLock.Lock()
 
 	if _, ok := currentRound.checkMap[string(m.GetHash())]; !ok {
@@ -156,6 +174,82 @@ func (r *Round) tryAttach(m Message, currentRound *Round, id int) {
 	return
 }
 
+func (r Round) replicate(m Message, currentRound *Round, id int) {
+
+	currentRound.checkMapLock.Lock()
+	missingrefs, canattach := r.checkCanAttach(m)
+	r.checkMapLock.Lock()
+	// if true, attach msg m to the current round
+	if canattach {
+		currentRound.attachMsg(m, id)
+
+		fmt.Println("can attach   " + strconv.Itoa(id))
+		if _, ok := currentRound.checkMap[string(m.GetHash())]; !ok {
+			//currentRound.checkMap[string(m.GetHash())] = make(chan bool)
+			currentRound.checkMapLock.Unlock()
+			r.checkMapLock.Unlock()
+			return
+		}
+		currentRound.checkMap[string(m.GetHash())] <- true
+		currentRound.checkMapLock.Unlock()
+		r.checkMapLock.Unlock()
+		// go func() {
+		// 	time.Sleep(2 * time.Second)
+		// 	currentRound.checkMapLock.Lock()
+
+		// 	close(currentRound.checkMap[string(m.GetHash())])
+		// 	currentRound.checkMapLock.Unlock()
+		// }()
+		return
+	}
+	fmt.Println("cant attach" + strconv.Itoa(id))
+	// r.checkMapLock.Lock()
+	//fmt.Println(1)
+	for _, ref := range missingrefs {
+		if _, ok := r.checkMap[string(ref)]; !ok {
+			r.checkMap[string(ref)] = make(chan bool, 1)
+		}
+	}
+	r.checkMapLock.Unlock()
+	currentRound.checkMapLock.Unlock()
+	var wg sync.WaitGroup
+
+	for _, ref := range missingrefs {
+		wg.Add(1)
+		rcopy := make([]byte, len(ref))
+		copy(rcopy, ref)
+		c := r.checkMap[string(rcopy)]
+
+		go func() {
+			b := <-c
+			c <- b
+			wg.Done()
+		}()
+
+	}
+	wg.Wait()
+	fmt.Println("still there?")
+	currentRound.checkMapLock.Lock()
+
+	if _, ok := currentRound.checkMap[string(m.GetHash())]; !ok {
+		//currentRound.checkMap[string(m.GetHash())] = make(chan bool)
+		currentRound.attachMsg(m, id)
+		currentRound.checkMapLock.Unlock()
+		return
+	}
+	currentRound.checkMap[string(m.GetHash())] <- true
+
+	// go func() {
+	// 	time.Sleep(2 * time.Second)
+	// 	currentRound.checkMapLock.Lock()
+
+	// 	close(currentRound.checkMap[string(m.GetHash())])
+	// 	currentRound.checkMapLock.Unlock()
+	// }()
+	currentRound.attachMsg(m, id)
+	currentRound.checkMapLock.Unlock()
+	return
+}
 func (r *Round) attachMsg(m Message, id int) {
 	r.messageLock.Lock()
 
@@ -186,6 +280,30 @@ func (r *Round) retMsgsToRef() [][]byte {
 	r.messageLock.RUnlock()
 	return msgsByte
 }
+
+// this func is used to remove the committed message from the memory to avoid memory leaks
+// In the future we use a database to store the committed messages but not for now
+func (r *Round) rmvMsgWhenCommitted(msg Message, id int) error {
+	r.messageLock.Lock()
+	defer r.messageLock.Unlock()
+	for i, m := range r.msgs[id] {
+		if bytes.Equal(m.GetHash(), msg.GetHash()) {
+			r.msgs[id] = append(r.msgs[id][:i], r.msgs[id][i+1:]...)
+			return nil
+		}
+	}
+	return errors.New("message not found")
+}
+
+// This function is only used for testing and lets the system continue running when the code is not yet finished.
+func (r *Round) rmvAllMsgsWhenCommitted() {
+	r.messageLock.Lock()
+	defer r.messageLock.Unlock()
+	for i := 0; i < 5*f+1; i++ {
+		r.msgs[i] = make([]Message, 0)
+	}
+}
+
 func newRound(rn int, m Message, id int) (*Round, error) {
 	if m.GetRN() != rn {
 		return nil, errors.New("round number not match")
@@ -196,11 +314,12 @@ func newRound(rn int, m Message, id int) (*Round, error) {
 	}
 	msglists[id] = append(msglists[id], m)
 	return &Round{
-		msgs:         msglists,
-		roundNumber:  rn,
-		checkMap:     make(map[string]chan bool),
-		messageLock:  sync.RWMutex{},
-		checkMapLock: sync.RWMutex{},
+		msgs:          msglists,
+		roundNumber:   rn,
+		checkMap:      make(map[string]chan bool),
+		isReceivedMap: make(map[string]bool),
+		messageLock:   sync.RWMutex{},
+		checkMapLock:  sync.RWMutex{},
 	}, nil
 }
 
@@ -217,11 +336,12 @@ func newStaticRound() (*Round, error) {
 
 	}
 	return &Round{
-		msgs:         msglists,
-		roundNumber:  0,
-		checkMap:     make(map[string]chan bool),
-		messageLock:  sync.RWMutex{},
-		checkMapLock: sync.RWMutex{},
+		msgs:          msglists,
+		roundNumber:   0,
+		checkMap:      make(map[string]chan bool),
+		isReceivedMap: make(map[string]bool),
+		messageLock:   sync.RWMutex{},
+		checkMapLock:  sync.RWMutex{},
 	}, nil
 
 }

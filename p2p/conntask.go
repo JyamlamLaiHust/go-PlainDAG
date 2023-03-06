@@ -50,14 +50,19 @@ func (n *NetworkDealer) Connectpeers(peerid int, idaddrmap map[int]string, idpor
 // }
 
 func (n *NetworkDealer) Broadcast(messagetype uint8, msg interface{}, sig []byte) error {
+	n.BroadcastSyncLock.Lock()
+	defer n.BroadcastSyncLock.Unlock()
 
 	for _, conn := range n.connPool {
 		//fmt.Println(conn)
+
 		err := n.SendMsg(messagetype, msg, sig, conn.dest)
 		if err != nil {
 			return err
 		}
+
 	}
+
 	return nil
 
 }

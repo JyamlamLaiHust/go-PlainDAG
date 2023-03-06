@@ -8,7 +8,7 @@ import (
 )
 
 type Messagehandler interface {
-	handleMsg(msg Message, sig []byte) error
+	handleMsg(msg Message, sig []byte, msgbytes []byte) error
 	getFutureMsgByRound(rn int) []Message
 	tryHandle(msg Message) error
 	handleFutureVers(rn int) error
@@ -99,7 +99,7 @@ func (sh *Statichandler) addIsDoneChan(rn int) {
 
 func (sh *Statichandler) addWaitingChan(rn int) {
 	sh.waitingChanMaplock.Lock()
-	sh.waitingChanMap[rn] = make(chan bool, 5*f)
+	sh.waitingChanMap[rn] = make(chan bool, 4*f-1)
 	sh.waitingChanMaplock.Unlock()
 }
 
@@ -109,11 +109,11 @@ func (sh *Statichandler) addReadyToSendChan(rn int) {
 	sh.readyToSendMapLock.Unlock()
 }
 
-func (sh *Statichandler) handleMsg(msg Message, sig []byte) error {
-	// err := sh.VerifyandCheckMsg(msg, sig)
-	// if err != nil {
-	// 	return err
-	// }
+func (sh *Statichandler) handleMsg(msg Message, sig []byte, msgbytes []byte) error {
+	err := sh.VerifyandCheckMsg(msg, sig, msgbytes)
+	if err != nil {
+		return err
+	}
 
 	isFuture := sh.storeFutureVers(msg)
 	if isFuture {
@@ -130,7 +130,9 @@ func (sh *Statichandler) tryHandle(msg Message) error {
 
 	rn := msg.GetRN()
 	lastRound := sh.n.bc.GetRound(rn - 1)
-	lastRound.tryAttach(msg, sh.n.bc.GetRound(rn), id)
+	thisRound := sh.n.bc.GetRound(rn)
+	lastRound.tryAttach(msg, thisRound, id)
+
 	//fmt.Println("ends here tryhandle1?")
 	sh.waitingChanMaplock.Lock()
 	ch := sh.waitingChanMap[rn]
@@ -140,16 +142,20 @@ func (sh *Statichandler) tryHandle(msg Message) error {
 
 	//fmt.Println("ends here tryhandle2?")
 	sh.readyToSendMapLock.Lock()
-	if len(ch) < 4*f {
-		ch <- true
+	if len(ch) < 4*f-1 {
+		if !thisRound.isReceivedMap[string(msg.GetSource())] {
+			fmt.Println("received from  " + strconv.Itoa(sh.n.cfg.StringIdMap[string(msg.GetSource())]))
+			ch <- true
+			thisRound.isReceivedMap[string(msg.GetSource())] = true
+		}
 	} else {
-		//fmt.Println("now 4f")
+		//fmt.Println("now 4f for " + strconv.Itoa(rn))
 		chready := sh.readyToSendMap[rn]
-
+		thisRound.isReceivedMap[string(msg.GetSource())] = true
 		sh.isSentLock.Lock()
-
+		fmt.Println("here out?")
 		if !sh.isSent[rn] {
-			//fmt.Println("here?")
+			fmt.Println("here in?")
 			chready <- true
 
 			sh.isSent[rn] = true
@@ -157,14 +163,14 @@ func (sh *Statichandler) tryHandle(msg Message) error {
 			close(chready)
 			close(ch)
 			sh.readyToSendMapLock.Unlock()
-			fmt.Println("handle msg success from    " + strconv.Itoa(id) + "round number: " + strconv.Itoa(rn))
+			//fmt.Println("handle msg success from    " + strconv.Itoa(id) + "round number: " + strconv.Itoa(rn))
 			return nil
 		}
 		sh.isSentLock.Unlock()
 		//chready <- true
 
 	}
-	fmt.Println("handle msg success from    " + strconv.Itoa(id) + "round number: " + strconv.Itoa(rn))
+	//fmt.Println("handle msg success from    " + strconv.Itoa(id) + "round number: " + strconv.Itoa(rn))
 
 	sh.readyToSendMapLock.Unlock()
 	return nil
@@ -191,36 +197,23 @@ func (sh *Statichandler) handleFutureVers(rn int) error {
 		//fmt.Println("signaled")
 		return nil
 	}
-	//fmt.Println(len(msgsNextRound))
+	sh.futureVerslock.Lock()
 	var err error
-	var wg sync.WaitGroup
-	//fmt.Println("are you stuck here?")
+	fmt.Println(len(msgsNextRound))
 
 	for _, msg := range msgsNextRound {
-		m := msg
-		_, canattach := sh.n.bc.GetRound(rn - 1).checkCanAttach(msg)
-		if canattach {
-			wg.Add(1)
-			//fmt.Println("wg add by 1")
-			go func() {
-				//fmt.Println("hi")
-				err = sh.tryHandle(m)
-				//fmt.Println("hiagain")
-				//fmt.Println("wg decrease by 1")
-				wg.Done()
-			}()
-		} else {
-			go sh.tryHandle(msg)
-		}
+		fmt.Println("handle")
+
+		go sh.tryHandle(msg)
+
 	}
-	wg.Wait()
+	sh.futureVerslock.Unlock()
 	//fmt.Println("are you stuck here?")
 	sh.signalFutureVersHandled(rn)
-
 	return err
 }
-func (sh *Statichandler) VerifyandCheckMsg(msg Message, sig []byte) error {
-	b, err := msg.VerifySig(sh.n, sig)
+func (sh *Statichandler) VerifyandCheckMsg(msg Message, sig []byte, msgbytes []byte) error {
+	b, err := msg.VerifySig(sh.n, sig, msgbytes)
 	if err != nil {
 		return err
 	}

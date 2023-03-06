@@ -3,11 +3,12 @@ package p2p
 import (
 	"bufio"
 	"context"
+	"encoding/json"
+	"sync"
 
 	"fmt"
 	"log"
 	"reflect"
-	"sync"
 
 	"github.com/hashicorp/go-msgpack/codec"
 	"github.com/libp2p/go-libp2p"
@@ -23,24 +24,23 @@ import (
 )
 
 type MsgWithSigandSrc struct {
-	Msg    interface{}
-	Sig    []byte
-	Source crypto.PubKey
+	Msg      interface{}
+	Sig      []byte
+	Msgbytes []byte
 }
 
 type NetworkDealer struct {
-	connPool     map[string]*conn
-	msgch        chan MsgWithSigandSrc
-	H            host.Host
-	shutdown     bool
-	shutdownCh   chan struct{}
-	shutdownLock sync.Mutex
+	connPool map[string]*conn
+	msgch    chan MsgWithSigandSrc
+	H        host.Host
 
 	// ctx               context.Context
 	// ctxCancel         context.CancelFunc
 	// ctxLock           sync.RWMutex
 
 	reflectedTypesMap map[uint8]reflect.Type
+
+	BroadcastSyncLock sync.Mutex
 }
 
 type conn struct {
@@ -69,19 +69,19 @@ func (n *NetworkDealer) Listen() {
 		log.Println("Received a connection from ", s.Conn().RemotePeer().String())
 
 		r := bufio.NewReader(s)
-		peerId := s.Conn().RemotePeer()
-		pubkey := n.H.Peerstore().PubKey(peerId)
+		//peerId := s.Conn().RemotePeer()
+		//pubkey := n.H.Peerstore().PubKey(peerId)
 		// if err != nil {
 		// 	log.Println("error extracting public key: ", err)
 		// }
-		n.HandleConn(r, pubkey)
+		n.HandleConn(r)
 
 	}
 	n.H.SetStreamHandler(protocol.ID("PlainDAG"), listenStream)
 
 }
 
-func (n *NetworkDealer) HandleConn(r *bufio.Reader, sourcepubkey crypto.PubKey) {
+func (n *NetworkDealer) HandleConn(r *bufio.Reader) {
 	for {
 
 		rpcType, err := r.ReadByte()
@@ -107,10 +107,20 @@ func (n *NetworkDealer) HandleConn(r *bufio.Reader, sourcepubkey crypto.PubKey) 
 		// 	json.Unmarshal(bytearray, &msg)
 		// 	msgBody = msg
 		// }
+
+		var sig []byte
+		if err := dec.Decode(&sig); err != nil {
+			log.Println("error decoding sig: ", err)
+		}
+
 		msgBody := reflect.New(n.reflectedTypesMap[rpcType]).Interface()
-		if err := dec.Decode(&msgBody); err != nil {
+
+		msgbytes := []byte{}
+		if err := dec.Decode(&msgbytes); err != nil {
 			log.Println("error decoding msg: ", err)
 		}
+
+		json.Unmarshal(msgbytes, &msgBody)
 
 		// var msgBodyBytes []byte
 		// if err := dec.Decode(&msgBodyBytes); err != nil {
@@ -119,12 +129,8 @@ func (n *NetworkDealer) HandleConn(r *bufio.Reader, sourcepubkey crypto.PubKey) 
 
 		// json.Unmarshal(msgBodyBytes, &msgBody)
 
-		var sig []byte
-		if err := dec.Decode(&sig); err != nil {
-			log.Println("error decoding sig: ", err)
-		}
 		// var sigok bool
-		// sigok, err = sourcepubkey.Verify(msgBodyBytes, sig)
+		// sigok, err = sourcepubkey.Verify(msgbytes, sig)
 		// if err != nil {
 		// 	panic(err)
 		// }
@@ -133,25 +139,23 @@ func (n *NetworkDealer) HandleConn(r *bufio.Reader, sourcepubkey crypto.PubKey) 
 		// 	return
 		// }
 		MsgWithSigandSrc := MsgWithSigandSrc{
-			Msg:    msgBody,
-			Sig:    sig,
-			Source: sourcepubkey,
+			Msg:      msgBody,
+			Sig:      sig,
+			Msgbytes: msgbytes,
 		}
 
 		select {
 		case n.msgch <- MsgWithSigandSrc:
-		case <-n.shutdownCh:
-			log.Println("shutting down")
+
+			//knowing the type of the struct, how to construct it with a known byte array?
+			// msg := reflect.New(n.reflectedTypesMap[rpcType]).Interface()
+			// if err := dec.Decode(msg); err != nil {
+			// 	log.Println("error decoding msg: ", err)
+			// }
+			// var sig []byte
 		}
 
-		//knowing the type of the struct, how to construct it with a known byte array?
-		// msg := reflect.New(n.reflectedTypesMap[rpcType]).Interface()
-		// if err := dec.Decode(msg); err != nil {
-		// 	log.Println("error decoding msg: ", err)
-		// }
-		// var sig []byte
 	}
-
 }
 
 func (n *NetworkDealer) Connect(port int, addr string, pubKey string) (*bufio.Writer, error) {
@@ -203,10 +207,12 @@ func (n *NetworkDealer) SendMsg(messagetype uint8, msg interface{}, sig []byte, 
 	if err := c.w.WriteByte(messagetype); err != nil {
 		return err
 	}
-	if err := c.encode.Encode(msg); err != nil {
+
+	if err := c.encode.Encode(sig); err != nil {
 		return err
 	}
-	if err := c.encode.Encode(sig); err != nil {
+
+	if err := c.encode.Encode(msg); err != nil {
 		return err
 	}
 	if err := c.w.Flush(); err != nil {
@@ -219,11 +225,9 @@ func NewnetworkDealer(port int, prvkey crypto.PrivKey, reflectedTypesMap map[uin
 
 	h := MakeHost(port, prvkey)
 	n := &NetworkDealer{
-		connPool:   make(map[string]*conn),
-		msgch:      make(chan MsgWithSigandSrc, 1000),
-		H:          h,
-		shutdown:   false,
-		shutdownCh: make(chan struct{}),
+		connPool: make(map[string]*conn),
+		msgch:    make(chan MsgWithSigandSrc, 10000),
+		H:        h,
 
 		reflectedTypesMap: reflectedTypesMap,
 	}
@@ -233,8 +237,4 @@ func NewnetworkDealer(port int, prvkey crypto.PrivKey, reflectedTypesMap map[uin
 
 func (n *NetworkDealer) ExtractMsg() chan MsgWithSigandSrc {
 	return n.msgch
-}
-
-func (n *NetworkDealer) ExtractShutdown() chan struct{} {
-	return n.shutdownCh
 }

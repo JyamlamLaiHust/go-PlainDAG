@@ -14,7 +14,11 @@ const (
 const f = 1
 const rPerwave = 3
 
+const Batchsize = 1000
+
 var messageconst []byte
+
+const plainMsgSize = 20
 
 type Froundmsg struct {
 	BasicMsg
@@ -24,14 +28,16 @@ type Lroundmsg struct {
 	BasicMsg
 }
 
-// Ref is used to refer a message, and a index field is added to make fast the searching procedure
-// Honestly adding this index field is not recommended because not all nodes have the same index-pubkey mapping
 type BasicMsg struct {
-	Rn         int      `json:"rn"`
-	References [][]byte `json:"references"`
-	Source     []byte   `json:"source"`
-	Hash       []byte   `json:hash`
-	plaintext  []byte   //`json:plaintext`
+	Rn         int        `json:"rn"`
+	References [][]byte   `json:"references"`
+	Source     []byte     `json:"source"`
+	Hash       []byte     `json:hash`
+	plainmsg   []PlainMsg //`json:plaintext`
+}
+
+type PlainMsg struct {
+	Msg []byte
 }
 
 // type Ref struct {
@@ -49,7 +55,8 @@ type Message interface {
 	GetRN() int
 	GetHash() []byte
 	GetSource() []byte
-	VerifySig(*Node, []byte) (bool, error)
+
+	VerifySig(*Node, []byte, []byte) (bool, error)
 	VerifyFields(*Node) error
 }
 

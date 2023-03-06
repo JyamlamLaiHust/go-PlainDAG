@@ -11,7 +11,7 @@ import (
 
 	"github.com/PlainDAG/go-PlainDAG/config"
 	"github.com/PlainDAG/go-PlainDAG/p2p"
-	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/PlainDAG/go-PlainDAG/utils"
 )
 
 type Node struct {
@@ -65,12 +65,24 @@ func (n *Node) paceToNextRound() (Message, error) {
 	//generate transaction
 	rn := int(n.currentround.Load())
 	n.handler.buildContextForRound(rn + 1)
-	msg, err := n.genTrans(rn + 1)
 
+	// this removal is only used to save memory when the code is not finished.
+	// if rn > 11 {
+	// 	minustenRound := n.bc.GetRound(rn - 10)
+	// 	minustenRound.rmvAllMsgsWhenCommitted()
+	// }
+	msg, err := n.genTrans(rn + 1)
+	if err != nil {
+		return nil, err
+	}
+	msgbytes, sig, err := utils.MarshalAndSign(msg, n.cfg.Prvkey)
 	if err != nil {
 		return nil, err
 	}
 
+	go n.SendMsgToAll(1, msgbytes, sig)
+
+	//initialize a new round with the newly generated message msg
 	newR, err := newRound(rn+1, msg, n.cfg.Id)
 
 	if err != nil {
@@ -79,44 +91,30 @@ func (n *Node) paceToNextRound() (Message, error) {
 	n.bc.AddRound(newR)
 
 	n.currentround.Add(1)
-	go n.handler.handleFutureVers(int(n.currentround.Load()))
-	go n.SendMsgToAll(1, msg, []byte{1})
-	// msgbytes, err := json.Marshal(msg)
-	// if err != nil {
-	// 	panic(err)
-	// }
 
-	// sig, err := n.cfg.Prvkey.Sign(msgbytes)
-	// if err != nil {
-	// 	panic(err)
-	// }
-
+	go n.handler.handleFutureVers(rn + 1)
+	//n.SendMsgToAll(1, msgbytes, sig)
 	return msg, err
-}
-
-func (n *Node) WaitAtRn(rn int) {
-
 }
 
 func (n *Node) HandleMsgForever() {
 	for {
 		select {
-		case <-n.network.ExtractShutdown():
-			return
+
 		case msg := <-n.network.ExtractMsg():
 			//log.Println("receive msg: ", msg.Msg)
 			switch msgAsserted := msg.Msg.(type) {
 			case Message:
 
-				go n.handleMsg(msgAsserted, msg.Sig, msg.Source)
+				go n.handleMsg(msgAsserted, msg.Sig, msg.Msgbytes)
 			}
 		}
 
 	}
 }
 
-func (n *Node) handleMsg(msg Message, sig []byte, source crypto.PubKey) {
-	if err := n.handler.handleMsg(msg, sig); err != nil {
+func (n *Node) handleMsg(msg Message, sig []byte, msgbytes []byte) {
+	if err := n.handler.handleMsg(msg, sig, msgbytes); err != nil {
 		panic(err)
 	}
 }
@@ -183,6 +181,12 @@ func (n *Node) SendForever() {
 		// }
 	}
 
+}
+
+func (n *Node) serialize(filepath string) error {
+	//Todo
+	//serialize the committed messages to the database
+	return nil
 }
 
 func StartandConnect() (*Node, error) {
