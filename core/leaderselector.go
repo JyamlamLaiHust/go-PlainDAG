@@ -3,8 +3,8 @@ package core
 import (
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"sync"
+	"time"
 
 	"github.com/PlainDAG/go-PlainDAG/sign"
 )
@@ -34,6 +34,14 @@ func NewLeaderSelector(n *Node) *LeaderSelector {
 }
 
 func (ls *LeaderSelector) handleTsMsg(msg *ThresSigMsg) error {
+	ls.slotMapLock.Lock()
+
+	if _, ok := ls.slotMap[msg.Wn]; ok {
+		ls.slotMapLock.Unlock()
+		return nil
+	}
+	ls.slotMapLock.Unlock()
+
 	ls.sigsMapLock.Lock()
 	if _, ok := ls.sigsMap[msg.Wn]; !ok {
 		ls.sigsMap[msg.Wn] = &SigsPerWave{
@@ -46,21 +54,32 @@ func (ls *LeaderSelector) handleTsMsg(msg *ThresSigMsg) error {
 	m := ls.sigsMap[msg.Wn]
 	m.sigsLock.Lock()
 	defer m.sigsLock.Unlock()
+
 	if len(m.sigsbytes) >= f+1 {
 
 		ls.slotMapLock.Lock()
-		defer ls.slotMapLock.Unlock()
 		if _, ok := ls.slotMap[msg.Wn]; ok {
-
+			ls.slotMapLock.Unlock()
 			return nil
-		} else {
-			slot, err := ls.ChooseLeader(m)
-			if err != nil {
-				return err
-			}
-			ls.slotMap[msg.Wn] = slot
-			fmt.Println("the leader slot for wave ", msg.Wn, "  is  ", slot)
 		}
+
+		slot, err := ls.ChooseLeader(m)
+		if err != nil {
+			ls.slotMapLock.Unlock()
+			return err
+		}
+
+		ls.slotMap[msg.Wn] = slot
+		ls.slotMapLock.Unlock()
+
+		go func() {
+			time.Sleep(2 * time.Second)
+			ls.sigsMapLock.Lock()
+			delete(ls.sigsMap, msg.Wn)
+			ls.sigsMapLock.Unlock()
+		}()
+		//fmt.Println("the leader slot for wave ", msg.Wn, "  is  ", slot)
+
 	} else {
 		m.sigsbytes = append(m.sigsbytes, msg.Sig)
 	}

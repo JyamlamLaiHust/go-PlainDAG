@@ -3,6 +3,7 @@ package core
 import (
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/PlainDAG/go-PlainDAG/utils"
 )
@@ -211,6 +212,12 @@ func (sh *Statichandler) handleFutureVers(rn int) error {
 	sh.futureVerslock.Unlock()
 	//fmt.Println("are you stuck here?")
 	sh.signalFutureVersHandled(rn)
+	go func() {
+		time.Sleep(2 * time.Second)
+		sh.futureVerslock.Lock()
+		delete(sh.futureVers, rn)
+		sh.futureVerslock.Unlock()
+	}()
 	return err
 }
 func (sh *Statichandler) VerifyandCheckMsg(msg Message, sig []byte, msgbytes []byte) error {

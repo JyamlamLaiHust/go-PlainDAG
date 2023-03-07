@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"flag"
-	"fmt"
 	"log"
 	"strconv"
 	"sync/atomic"
@@ -35,15 +34,33 @@ func (n *Node) genTrans(rn int) (Message, error) {
 	if rn%100 == 0 {
 		log.Println("generate transaction for round" + strconv.Itoa(rn))
 	} //generate transaction
-	return n.genBasicMsg(rn)
-}
+	if rn%rPerwave == 0 {
 
-func (n *Node) genFroundMsg(rn int) (*Froundmsg, error) {
+		return n.genBasicMsg(rn)
+	} else if rn%rPerwave == 1 {
+		return n.genLroundMsg(rn)
+	} else if rn%rPerwave == 2 {
+		return n.genLroundMsg(rn)
+	}
 	return nil, nil
 }
 
-func (n *Node) genLroundMsg(rn int) (*Lroundmsg, error) {
+func (n *Node) genFroundMsg(rn int) (*FRoundMsg, error) {
 	return nil, nil
+}
+
+func (n *Node) genLroundMsg(rn int) (*LRoundMsg, error) {
+	basic, err := n.genBasicMsg(rn)
+	if err != nil {
+		return nil, err
+	}
+
+	lroundmsg, err := NewLroundMsg([][]byte{}, basic)
+	if err != nil {
+		return nil, err
+	}
+	return lroundmsg, nil
+
 }
 
 func (n *Node) genBasicMsg(rn int) (*BasicMsg, error) {
@@ -67,7 +84,7 @@ func (n *Node) genThresMsg(rn int) *ThresSigMsg {
 
 	bytes := make([]byte, binary.MaxVarintLen64)
 	_ = binary.PutVarint(bytes, int64(rn))
-	fmt.Println("generated for round  ", rn, "    ", bytes)
+	//fmt.Println("generated for round  ", rn, "    ", bytes)
 	s := sign.SignTSPartial(n.cfg.TSPrvKey, bytes)
 	thresSigMsg := &ThresSigMsg{
 		Wn:     rn / rPerwave,
@@ -100,8 +117,10 @@ func (n *Node) paceToNextRound() (Message, error) {
 	go n.SendMsgToAll(1, msgbytes, sig)
 	if rn%rPerwave == 1 && rn != 1 {
 		thresSigMsg := n.genThresMsg(rn + 1)
+
 		//fmt.Println(thresSigMsg.sig, thresSigMsg.source, thresSigMsg.wn)
 		thresSigMsgBytes, sig, err := utils.MarshalAndSign(thresSigMsg, n.cfg.Prvkey)
+		n.handler.handleThresMsg(thresSigMsg, sig, thresSigMsgBytes)
 		if err != nil {
 			return nil, err
 		}

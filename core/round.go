@@ -155,10 +155,8 @@ func (r *Round) tryAttach(m Message, currentRound *Round, id int) {
 	currentRound.checkMapLock.Lock()
 
 	if _, ok := currentRound.checkMap[string(m.GetHash())]; !ok {
-		//currentRound.checkMap[string(m.GetHash())] = make(chan bool)
-		currentRound.attachMsg(m, id)
-		currentRound.checkMapLock.Unlock()
-		return
+		currentRound.checkMap[string(m.GetHash())] = make(chan bool, 1)
+
 	}
 	currentRound.checkMap[string(m.GetHash())] <- true
 

@@ -21,12 +21,13 @@ var messageconst []byte
 
 const plainMsgSize = 20
 
-type Froundmsg struct {
-	BasicMsg
+type FRoundMsg struct {
+	*BasicMsg
 }
 
-type Lroundmsg struct {
-	BasicMsg
+type LRoundMsg struct {
+	*BasicMsg
+	ARefs [][]byte `json:arefs`
 }
 
 type BasicMsg struct {
@@ -62,8 +63,8 @@ type Message interface {
 	VerifyFields(*Node) error
 }
 
-var fmsg Froundmsg
-var lmsg Lroundmsg
+var fmsg FRoundMsg
+var lmsg LRoundMsg
 var bmsg BasicMsg
 var tmsg ThresSigMsg
 var ReflectedTypesMap = map[uint8]reflect.Type{
