@@ -1,8 +1,6 @@
 package core
 
 import (
-	"sync"
-
 	"github.com/PlainDAG/go-PlainDAG/config"
 	"github.com/PlainDAG/go-PlainDAG/p2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -45,10 +43,8 @@ func NewNode(filepath string) (*Node, error) {
 		return nil, err
 	}
 	node := Node{
-		bc:         chain,
-		network:    n,
-		isSentMap:  make(map[int]bool),
-		isSentLock: sync.Mutex{},
+		bc:      chain,
+		network: n,
 	}
 	c.Pubkey = n.H.Peerstore().PubKey(n.H.ID())
 	Pubkeyraw, err := crypto.MarshalPublicKey(c.Pubkey)
@@ -59,6 +55,7 @@ func NewNode(filepath string) (*Node, error) {
 
 	node.cfg = c
 	node.handler = NewStatichandler(&node)
+	node.ls = NewLeaderSelector(&node)
 
 	node.currentround.Store(0)
 	return &node, err

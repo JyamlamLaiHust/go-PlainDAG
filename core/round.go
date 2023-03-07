@@ -105,7 +105,7 @@ func (r *Round) tryAttach(m Message, currentRound *Round, id int) {
 	if canattach {
 		currentRound.attachMsg(m, id)
 
-		fmt.Println("can attach   " + strconv.Itoa(id))
+		//fmt.Println("can attach   " + strconv.Itoa(id))
 		currentRound.checkMapLock.Lock()
 		if _, ok := currentRound.checkMap[string(m.GetHash())]; !ok {
 			currentRound.checkMap[string(m.GetHash())] = make(chan bool, 1)
@@ -125,7 +125,7 @@ func (r *Round) tryAttach(m Message, currentRound *Round, id int) {
 		return
 	}
 	r.checkMapLock.Lock()
-	fmt.Println("cant attach" + strconv.Itoa(id))
+	//fmt.Println("cant attach" + strconv.Itoa(id))
 	// r.checkMapLock.Lock()
 	//fmt.Println(1)
 	for _, ref := range missingrefs {
@@ -151,7 +151,7 @@ func (r *Round) tryAttach(m Message, currentRound *Round, id int) {
 
 	}
 	wg.Wait()
-	fmt.Println("still there?")
+	//fmt.Println("still there?")
 	currentRound.checkMapLock.Lock()
 
 	if _, ok := currentRound.checkMap[string(m.GetHash())]; !ok {

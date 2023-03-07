@@ -107,6 +107,7 @@ func (n *NetworkDealer) HandleConn(r *bufio.Reader) {
 		// 	json.Unmarshal(bytearray, &msg)
 		// 	msgBody = msg
 		// }
+		//fmt.Println("received rpc type: ", rpcType)
 
 		var sig []byte
 		if err := dec.Decode(&sig); err != nil {
@@ -119,6 +120,7 @@ func (n *NetworkDealer) HandleConn(r *bufio.Reader) {
 		if err := dec.Decode(&msgbytes); err != nil {
 			log.Println("error decoding msg: ", err)
 		}
+		//fmt.Println(msgbytes)
 
 		json.Unmarshal(msgbytes, &msgBody)
 

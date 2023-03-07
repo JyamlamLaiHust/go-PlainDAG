@@ -1,16 +1,18 @@
 package core
 
 import (
+	"encoding/binary"
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"strconv"
-	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/PlainDAG/go-PlainDAG/config"
 	"github.com/PlainDAG/go-PlainDAG/p2p"
+	"github.com/PlainDAG/go-PlainDAG/sign"
 	"github.com/PlainDAG/go-PlainDAG/utils"
 )
 
@@ -24,8 +26,8 @@ type Node struct {
 
 	cfg *config.Config
 
-	isSentMap  map[int]bool
-	isSentLock sync.Mutex
+	ls        *LeaderSelector
+	committer *StaticCommitter
 }
 
 func (n *Node) genTrans(rn int) (Message, error) {
@@ -50,9 +52,9 @@ func (n *Node) genBasicMsg(rn int) (*BasicMsg, error) {
 		return nil, errors.New("last round is nil")
 	}
 	//generate transaction
-	msgsByte := lastRound.retMsgsToRef()
+	refsByte := lastRound.retMsgsToRef()
 	//fmt.Println(len(msgsByte))
-	basicMsg, err := NewBasicMsg(rn, msgsByte, n.cfg.Pubkeyraw)
+	basicMsg, err := NewBasicMsg(rn, refsByte, n.cfg.Pubkeyraw)
 	if err != nil {
 		return nil, err
 	}
@@ -61,26 +63,51 @@ func (n *Node) genBasicMsg(rn int) (*BasicMsg, error) {
 
 }
 
+func (n *Node) genThresMsg(rn int) *ThresSigMsg {
+
+	bytes := make([]byte, binary.MaxVarintLen64)
+	_ = binary.PutVarint(bytes, int64(rn))
+	fmt.Println("generated for round  ", rn, "    ", bytes)
+	s := sign.SignTSPartial(n.cfg.TSPrvKey, bytes)
+	thresSigMsg := &ThresSigMsg{
+		Wn:     rn / rPerwave,
+		Sig:    s,
+		Source: n.cfg.Pubkeyraw,
+	}
+	//fmt.Println(thresSigMsg.source)
+	return thresSigMsg
+
+}
 func (n *Node) paceToNextRound() (Message, error) {
 	//generate transaction
 	rn := int(n.currentround.Load())
 	n.handler.buildContextForRound(rn + 1)
 
-	// this removal is only used to save memory when the code is not finished.
-	// if rn > 11 {
-	// 	minustenRound := n.bc.GetRound(rn - 10)
-	// 	minustenRound.rmvAllMsgsWhenCommitted()
-	// }
+	//this removal is only used to save memory when the code is not finished.
+	if rn > 11 {
+		minustenRound := n.bc.GetRound(rn - 10)
+		minustenRound.rmvAllMsgsWhenCommitted()
+	}
 	msg, err := n.genTrans(rn + 1)
 	if err != nil {
 		return nil, err
 	}
+
 	msgbytes, sig, err := utils.MarshalAndSign(msg, n.cfg.Prvkey)
 	if err != nil {
 		return nil, err
 	}
-
 	go n.SendMsgToAll(1, msgbytes, sig)
+	if rn%rPerwave == 1 && rn != 1 {
+		thresSigMsg := n.genThresMsg(rn + 1)
+		//fmt.Println(thresSigMsg.sig, thresSigMsg.source, thresSigMsg.wn)
+		thresSigMsgBytes, sig, err := utils.MarshalAndSign(thresSigMsg, n.cfg.Prvkey)
+		if err != nil {
+			return nil, err
+		}
+		//rintln(thresSigMsgBytes)
+		go n.SendMsgToAll(3, thresSigMsgBytes, sig)
+	}
 
 	//initialize a new round with the newly generated message msg
 	newR, err := newRound(rn+1, msg, n.cfg.Id)
@@ -105,9 +132,13 @@ func (n *Node) HandleMsgForever() {
 			//log.Println("receive msg: ", msg.Msg)
 			switch msgAsserted := msg.Msg.(type) {
 			case Message:
-
 				go n.handleMsg(msgAsserted, msg.Sig, msg.Msgbytes)
+			case *ThresSigMsg:
+				// fmt.Println("received thresmsg")
+				//fmt.Println(msg.Msg)
+				go n.handleThresMsg(msgAsserted, msg.Sig, msg.Msgbytes)
 			}
+
 		}
 
 	}
@@ -115,6 +146,12 @@ func (n *Node) HandleMsgForever() {
 
 func (n *Node) handleMsg(msg Message, sig []byte, msgbytes []byte) {
 	if err := n.handler.handleMsg(msg, sig, msgbytes); err != nil {
+		panic(err)
+	}
+}
+
+func (n *Node) handleThresMsg(msg *ThresSigMsg, sig []byte, msgbytes []byte) {
+	if err := n.handler.handleThresMsg(msg, sig, msgbytes); err != nil {
 		panic(err)
 	}
 }

@@ -18,3 +18,15 @@ func MarshalAndSign(msg interface{}, prvkey crypto.PrivKey) ([]byte, []byte, err
 
 	return msgbytes, sig, nil
 }
+
+func VerifySig(m map[string]crypto.PubKey, sig []byte, msgbytes []byte, source []byte) (bool, error) {
+
+	//fmt.Println(m.Source)
+	publickey := m[string(source)]
+	//fmt.Println(source)
+	if publickey == nil {
+		panic("none")
+	}
+
+	return publickey.Verify(msgbytes, sig)
+}

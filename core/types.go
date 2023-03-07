@@ -9,6 +9,7 @@ const (
 
 	BMsgTag
 	LMsgTag
+	TMsgTag
 )
 
 const f = 1
@@ -40,10 +41,12 @@ type PlainMsg struct {
 	Msg []byte
 }
 
-// type Ref struct {
-// 	H     []byte
-// 	Index uint8
-// }
+type ThresSigMsg struct {
+	Sig []byte `json:sig`
+	//wave number
+	Wn     int    `json:wn`
+	Source []byte `json:source`
+}
 
 type Message interface {
 	Encode() ([]byte, error)
@@ -56,15 +59,16 @@ type Message interface {
 	GetHash() []byte
 	GetSource() []byte
 
-	VerifySig(*Node, []byte, []byte) (bool, error)
 	VerifyFields(*Node) error
 }
 
 var fmsg Froundmsg
 var lmsg Lroundmsg
 var bmsg BasicMsg
+var tmsg ThresSigMsg
 var ReflectedTypesMap = map[uint8]reflect.Type{
 	FMsgTag: reflect.TypeOf(fmsg),
 	LMsgTag: reflect.TypeOf(lmsg),
 	BMsgTag: reflect.TypeOf(bmsg),
+	TMsgTag: reflect.TypeOf(tmsg),
 }

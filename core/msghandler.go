@@ -2,13 +2,14 @@ package core
 
 import (
 	"errors"
-	"fmt"
-	"strconv"
 	"sync"
+
+	"github.com/PlainDAG/go-PlainDAG/utils"
 )
 
 type Messagehandler interface {
 	handleMsg(msg Message, sig []byte, msgbytes []byte) error
+	handleThresMsg(msg *ThresSigMsg, sig []byte, msgbytes []byte) error
 	getFutureMsgByRound(rn int) []Message
 	tryHandle(msg Message) error
 	handleFutureVers(rn int) error
@@ -144,7 +145,7 @@ func (sh *Statichandler) tryHandle(msg Message) error {
 	sh.readyToSendMapLock.Lock()
 	if len(ch) < 4*f-1 {
 		if !thisRound.isReceivedMap[string(msg.GetSource())] {
-			fmt.Println("received from  " + strconv.Itoa(sh.n.cfg.StringIdMap[string(msg.GetSource())]))
+			//fmt.Println("received from  " + strconv.Itoa(sh.n.cfg.StringIdMap[string(msg.GetSource())]))
 			ch <- true
 			thisRound.isReceivedMap[string(msg.GetSource())] = true
 		}
@@ -153,9 +154,9 @@ func (sh *Statichandler) tryHandle(msg Message) error {
 		chready := sh.readyToSendMap[rn]
 		thisRound.isReceivedMap[string(msg.GetSource())] = true
 		sh.isSentLock.Lock()
-		fmt.Println("here out?")
+		//fmt.Println("here out?")
 		if !sh.isSent[rn] {
-			fmt.Println("here in?")
+			//fmt.Println("here in?")
 			chready <- true
 
 			sh.isSent[rn] = true
@@ -199,10 +200,10 @@ func (sh *Statichandler) handleFutureVers(rn int) error {
 	}
 	sh.futureVerslock.Lock()
 	var err error
-	fmt.Println(len(msgsNextRound))
+	//fmt.Println(len(msgsNextRound))
 
 	for _, msg := range msgsNextRound {
-		fmt.Println("handle")
+		//fmt.Println("handle")
 
 		go sh.tryHandle(msg)
 
@@ -213,7 +214,8 @@ func (sh *Statichandler) handleFutureVers(rn int) error {
 	return err
 }
 func (sh *Statichandler) VerifyandCheckMsg(msg Message, sig []byte, msgbytes []byte) error {
-	b, err := msg.VerifySig(sh.n, sig, msgbytes)
+	b, err := utils.VerifySig(sh.n.cfg.StringpubkeyMap, sig, msgbytes, msg.GetSource())
+	// b, err := msg.VerifySig(sh.n, sig, msgbytes)
 	if err != nil {
 		return err
 	}
@@ -233,6 +235,19 @@ func (sh *Statichandler) getFutureMsgByRound(rn int) []Message {
 	msgs := sh.futureVers[rn]
 	return msgs
 }
+
+func (sh *Statichandler) handleThresMsg(msg *ThresSigMsg, sig []byte, msgbytes []byte) error {
+	b, err := utils.VerifySig(sh.n.cfg.StringpubkeyMap, sig, msgbytes, msg.Source)
+	if err != nil {
+		return err
+	}
+	if !b {
+		return errors.New("signature verification failed")
+	}
+
+	return sh.n.ls.handleTsMsg(msg)
+}
+
 func NewStatichandler(n *Node) *Statichandler {
 	return &Statichandler{
 		n:                    n,

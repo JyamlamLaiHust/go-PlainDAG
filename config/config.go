@@ -1,13 +1,16 @@
 package config
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/PlainDAG/go-PlainDAG/sign"
 	"github.com/libp2p/go-libp2p/core/crypto"
 	"github.com/spf13/viper"
+	"go.dedis.ch/kyber/v3/share"
 )
 
 type Config struct {
@@ -31,6 +34,9 @@ type Config struct {
 	StringpubkeyMap map[string]crypto.PubKey
 	// the second map is to store the index of each node and reference the public key to id. the key string is the string(pubkey) field
 	StringIdMap map[string]int
+
+	TSPubKey *share.PubPoly
+	TSPrvKey *share.PriShare
 
 	Timeout time.Duration
 }
@@ -152,6 +158,27 @@ func Loadconfig(filepath string) *Config {
 		pubkeyidmap[pubkeyothers] = id
 	}
 
+	tsPubKeyAsString := viperRead.GetString("tspubkey")
+
+	tsPubKeyAsBytes, err := hex.DecodeString(tsPubKeyAsString)
+	if err != nil {
+		panic(err)
+	}
+	tsPubKey, err := sign.DecodeTSPublicKey(tsPubKeyAsBytes)
+	if err != nil {
+		panic(err)
+	}
+
+	tsShareAsString := viperRead.GetString("tsshare")
+	fmt.Println(tsShareAsString)
+	tsShareAsBytes, err := hex.DecodeString(tsShareAsString)
+	if err != nil {
+		panic(err)
+	}
+	tsShareKey, err := sign.DecodeTSPartialKey(tsShareAsBytes)
+	if err != nil {
+		panic(err)
+	}
 	return &Config{
 		Ipaddress: idIPMap[fileindex],
 		Port:      idP2PPortMap[fileindex],
@@ -165,5 +192,8 @@ func Loadconfig(filepath string) *Config {
 
 		IdPubkeymap: pubkeysmap,
 		PubkeyIdMap: pubkeyidmap,
+
+		TSPubKey: tsPubKey,
+		TSPrvKey: tsShareKey,
 	}
 }

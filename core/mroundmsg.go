@@ -37,17 +37,6 @@ func (m *BasicMsg) GetSource() []byte {
 	return m.Source
 }
 
-func (m *BasicMsg) VerifySig(n *Node, sig []byte, msgbytes []byte) (bool, error) {
-
-	//fmt.Println(m.Source)
-	publickey := n.cfg.StringpubkeyMap[string(m.Source)]
-	if publickey == nil {
-		panic("none")
-	}
-
-	return publickey.Verify(msgbytes, sig)
-}
-
 // msg is the target message to be checked
 // msgbyrounds are the messages whose round number is less than message m but larger than the target message
 // targetmsground is the messageround whose round number is equal to the target message
@@ -117,7 +106,7 @@ func (m *BasicMsg) VerifyFields(n *Node) error {
 }
 
 func NewBasicMsg(rn int, refs [][]byte, source []byte) (*BasicMsg, error) {
-	plainmsgs := make([]PlainMsg, 0)
+	plainmsgs := make([]PlainMsg, Batchsize)
 
 	for i := 0; i < Batchsize; i++ {
 		plainmsgs = append(plainmsgs, PlainMsg{Msg: messageconst})

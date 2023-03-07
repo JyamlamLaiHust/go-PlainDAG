@@ -1,7 +1,4 @@
 package core
 
-type committer interface {
-}
-
-type Staticcommitter struct {
+type StaticCommitter struct {
 }
