@@ -215,7 +215,7 @@ func (n *Node) SendMsg(messagetype uint8, msg interface{}, sig []byte, dest stri
 }
 
 func (n *Node) SendMsgToAll(messagetype uint8, msg interface{}, sig []byte) error {
-	if err := n.network.Broadcast(messagetype, msg, sig); err != nil {
+	if err := n.network.Broadcast(messagetype, msg, sig, n.cfg.Simlatency); err != nil {
 		return err
 	}
 	return nil

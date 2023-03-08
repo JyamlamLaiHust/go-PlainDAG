@@ -4,6 +4,8 @@ import (
 	"log"
 	"reflect"
 	"strconv"
+	"sync"
+	"time"
 
 	"github.com/hashicorp/go-msgpack/codec"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -49,20 +51,25 @@ func (n *NetworkDealer) Connectpeers(peerid int, idaddrmap map[int]string, idpor
 
 // }
 
-func (n *NetworkDealer) Broadcast(messagetype uint8, msg interface{}, sig []byte) error {
-	n.BroadcastSyncLock.Lock()
-	defer n.BroadcastSyncLock.Unlock()
+func (n *NetworkDealer) Broadcast(messagetype uint8, msg interface{}, sig []byte, simlatency float64) error {
 
+	n.BroadcastSyncLock.Lock()
+
+	time.Sleep(time.Duration(n.latencyrand.Poisson(simlatency)) * time.Millisecond)
+	var wg sync.WaitGroup
+	// fmt.Println("round 2?")
 	for _, conn := range n.connPool {
 		//fmt.Println(conn)
-
-		err := n.SendMsg(messagetype, msg, sig, conn.dest)
-		if err != nil {
-			return err
-		}
-
+		wg.Add(1)
+		c := conn
+		go func() {
+			n.SendMsg(messagetype, msg, sig, c.dest)
+			wg.Done()
+		}()
 	}
-
+	wg.Wait()
+	//fmt.Println("are you finished?")
+	n.BroadcastSyncLock.Unlock()
 	return nil
 
 }

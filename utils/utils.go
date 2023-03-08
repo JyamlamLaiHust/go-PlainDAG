@@ -2,6 +2,8 @@ package utils
 
 import (
 	"encoding/json"
+	"math"
+	"math/rand"
 
 	"github.com/libp2p/go-libp2p/core/crypto"
 )
@@ -29,4 +31,33 @@ func VerifySig(m map[string]crypto.PubKey, sig []byte, msgbytes []byte, source [
 	}
 
 	return publickey.Verify(msgbytes, sig)
+}
+
+// func PoissonDistribution(parameter float64) int {
+// 	expRand := rand.ExpFloat64() / parameter
+// 	poissonRand := int(math.Round(math.Log(expRand) / math.Log(math.E) * (-expRand)))
+
+// 	return poissonRand
+// }
+
+type PoissonGenerator struct {
+	rand *rand.Rand
+}
+
+func NewPoissonGenerator(seed int64) *PoissonGenerator {
+	return &PoissonGenerator{rand: rand.New(rand.NewSource(seed))}
+}
+
+func (p *PoissonGenerator) Poisson(mean float64) int {
+	// Use the Knuth algorithm to generate a Poisson-distributed random number
+	L := math.Exp(-mean)
+	k := 0.0
+	pa := 1.0
+
+	for pa >= L {
+		k++
+		pa *= p.rand.Float64()
+	}
+
+	return int(k - 1)
 }

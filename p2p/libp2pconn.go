@@ -5,11 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"sync"
+	"time"
 
 	"fmt"
 	"log"
 	"reflect"
 
+	"github.com/PlainDAG/go-PlainDAG/utils"
 	"github.com/hashicorp/go-msgpack/codec"
 	"github.com/libp2p/go-libp2p"
 
@@ -41,6 +43,7 @@ type NetworkDealer struct {
 	reflectedTypesMap map[uint8]reflect.Type
 
 	BroadcastSyncLock sync.Mutex
+	latencyrand       *utils.PoissonGenerator
 }
 
 type conn struct {
@@ -227,10 +230,10 @@ func NewnetworkDealer(port int, prvkey crypto.PrivKey, reflectedTypesMap map[uin
 
 	h := MakeHost(port, prvkey)
 	n := &NetworkDealer{
-		connPool: make(map[string]*conn),
-		msgch:    make(chan MsgWithSigandSrc, 10000),
-		H:        h,
-
+		connPool:          make(map[string]*conn),
+		msgch:             make(chan MsgWithSigandSrc, 10000),
+		H:                 h,
+		latencyrand:       utils.NewPoissonGenerator(time.Now().Unix()),
 		reflectedTypesMap: reflectedTypesMap,
 	}
 
