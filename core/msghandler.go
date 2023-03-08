@@ -124,7 +124,11 @@ func (sh *Statichandler) handleMsg(msg Message, sig []byte, msgbytes []byte) err
 
 	//msg.DisplayinJson()
 
-	return sh.tryHandle(msg)
+	err = sh.tryHandle(msg)
+	if err != nil {
+		return err
+	}
+	return sh.workAfterAttach(msg)
 }
 
 func (sh *Statichandler) tryHandle(msg Message) error {
@@ -191,6 +195,10 @@ func (sh *Statichandler) storeFutureVers(msg Message) bool {
 	return false
 }
 
+func (sh *Statichandler) workAfterAttach(msg Message) error {
+	return msg.AfterAttach(sh.n)
+}
+
 func (sh *Statichandler) handleFutureVers(rn int) error {
 
 	msgsNextRound := sh.getFutureMsgByRound(rn)
@@ -205,9 +213,11 @@ func (sh *Statichandler) handleFutureVers(rn int) error {
 
 	for _, msg := range msgsNextRound {
 		//fmt.Println("handle")
-
-		go sh.tryHandle(msg)
-
+		m := msg
+		go func() {
+			sh.tryHandle(m)
+			sh.workAfterAttach(m)
+		}()
 	}
 	sh.futureVerslock.Unlock()
 	//fmt.Println("are you stuck here?")

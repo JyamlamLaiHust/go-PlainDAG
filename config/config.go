@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/PlainDAG/go-PlainDAG/sign"
 	"github.com/libp2p/go-libp2p/core/crypto"
@@ -38,7 +37,7 @@ type Config struct {
 	TSPubKey *share.PubPoly
 	TSPrvKey *share.PriShare
 
-	Timeout time.Duration
+	Simlatency float64
 }
 
 func Loadconfig(filepath string) *Config {
@@ -179,6 +178,9 @@ func Loadconfig(filepath string) *Config {
 	if err != nil {
 		panic(err)
 	}
+
+	simlatency := viperRead.GetFloat64("simlatency")
+
 	return &Config{
 		Ipaddress: idIPMap[fileindex],
 		Port:      idP2PPortMap[fileindex],
@@ -187,13 +189,14 @@ func Loadconfig(filepath string) *Config {
 		IdnameMap: idNameMap,
 		IdportMap: idP2PPortMap,
 		IdaddrMap: idIPMap,
-		Timeout:   time.Duration(viperRead.GetInt("timeout")) * time.Second,
-		Prvkey:    privkeyobj,
+
+		Prvkey: privkeyobj,
 
 		IdPubkeymap: pubkeysmap,
 		PubkeyIdMap: pubkeyidmap,
 
-		TSPubKey: tsPubKey,
-		TSPrvKey: tsShareKey,
+		TSPubKey:   tsPubKey,
+		TSPrvKey:   tsShareKey,
+		Simlatency: simlatency,
 	}
 }

@@ -56,7 +56,7 @@ func NewNode(filepath string) (*Node, error) {
 	node.cfg = c
 	node.handler = NewStatichandler(&node)
 	node.ls = NewLeaderSelector(&node)
-
+	node.committer = NewStaticCommitter(&node)
 	node.currentround.Store(0)
 	return &node, err
 }

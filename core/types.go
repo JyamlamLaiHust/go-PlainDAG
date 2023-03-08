@@ -61,6 +61,8 @@ type Message interface {
 	GetSource() []byte
 
 	VerifyFields(*Node) error
+
+	AfterAttach(*Node) error
 }
 
 var fmsg FRoundMsg

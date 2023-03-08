@@ -105,6 +105,10 @@ func (m *BasicMsg) VerifyFields(n *Node) error {
 
 }
 
+func (m *BasicMsg) AfterAttach(n *Node) error {
+	//fmt.Println("mround message, do nothing")
+	return nil
+}
 func NewBasicMsg(rn int, refs [][]byte, source []byte) (*BasicMsg, error) {
 	plainmsgs := make([]PlainMsg, Batchsize)
 

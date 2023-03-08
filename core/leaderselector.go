@@ -3,6 +3,7 @@ package core
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -13,10 +14,13 @@ type LeaderSelector struct {
 	sigsMap     map[int]*SigsPerWave
 	sigsMapLock sync.Mutex
 
-	slotMap     map[int]int
+	slotMap     map[int]*int
 	slotMapLock sync.Mutex
 
 	n *Node
+
+	leaderChosenChan map[int]chan bool
+	leaderChosenLock sync.RWMutex
 }
 
 type SigsPerWave struct {
@@ -27,9 +31,10 @@ type SigsPerWave struct {
 
 func NewLeaderSelector(n *Node) *LeaderSelector {
 	return &LeaderSelector{
-		sigsMap: make(map[int]*SigsPerWave),
-		slotMap: make(map[int]int),
-		n:       n,
+		sigsMap:          make(map[int]*SigsPerWave),
+		slotMap:          make(map[int]*int),
+		leaderChosenChan: make(map[int]chan bool),
+		n:                n,
 	}
 }
 
@@ -37,6 +42,7 @@ func (ls *LeaderSelector) handleTsMsg(msg *ThresSigMsg) error {
 	ls.slotMapLock.Lock()
 
 	if _, ok := ls.slotMap[msg.Wn]; ok {
+		//fmt.Println("what for ?", msg.Wn)
 		ls.slotMapLock.Unlock()
 		return nil
 	}
@@ -59,6 +65,7 @@ func (ls *LeaderSelector) handleTsMsg(msg *ThresSigMsg) error {
 
 		ls.slotMapLock.Lock()
 		if _, ok := ls.slotMap[msg.Wn]; ok {
+
 			ls.slotMapLock.Unlock()
 			return nil
 		}
@@ -69,16 +76,29 @@ func (ls *LeaderSelector) handleTsMsg(msg *ThresSigMsg) error {
 			return err
 		}
 
-		ls.slotMap[msg.Wn] = slot
+		ls.slotMap[msg.Wn] = &slot
+		ls.leaderChosenLock.Lock()
+		if _, ok := ls.leaderChosenChan[msg.Wn]; !ok {
+			ls.leaderChosenChan[msg.Wn] = make(chan bool, 1)
+		}
+
+		ls.leaderChosenChan[msg.Wn] <- true
+		//fmt.Println("has sent chan")
+		ls.leaderChosenLock.Unlock()
 		ls.slotMapLock.Unlock()
 
 		go func() {
 			time.Sleep(2 * time.Second)
 			ls.sigsMapLock.Lock()
 			delete(ls.sigsMap, msg.Wn)
+
 			ls.sigsMapLock.Unlock()
+			ls.leaderChosenLock.Lock()
+			close(ls.leaderChosenChan[msg.Wn])
+			delete(ls.leaderChosenChan, msg.Wn)
+			ls.leaderChosenLock.Unlock()
 		}()
-		//fmt.Println("the leader slot for wave ", msg.Wn, "  is  ", slot)
+		fmt.Println("the leader slot for wave ", msg.Wn, "  is  ", slot)
 
 	} else {
 		m.sigsbytes = append(m.sigsbytes, msg.Sig)

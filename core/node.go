@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"strconv"
 	"sync/atomic"
@@ -30,7 +31,9 @@ type Node struct {
 }
 
 func (n *Node) genTrans(rn int) (Message, error) {
-
+	if rn < 3 {
+		return n.genBasicMsg(rn)
+	}
 	if rn%100 == 0 {
 		log.Println("generate transaction for round" + strconv.Itoa(rn))
 	} //generate transaction
@@ -38,7 +41,7 @@ func (n *Node) genTrans(rn int) (Message, error) {
 
 		return n.genBasicMsg(rn)
 	} else if rn%rPerwave == 1 {
-		return n.genLroundMsg(rn)
+		return n.genBasicMsg(rn)
 	} else if rn%rPerwave == 2 {
 		return n.genLroundMsg(rn)
 	}
@@ -55,10 +58,23 @@ func (n *Node) genLroundMsg(rn int) (*LRoundMsg, error) {
 		return nil, err
 	}
 
-	lroundmsg, err := NewLroundMsg([][]byte{}, basic)
+	lround := n.bc.GetRound(rn - 2)
+	mround := n.bc.GetRound(rn - 1)
+	bytes, err := lround.genArefs(basic, mround)
 	if err != nil {
 		return nil, err
 	}
+
+	lroundmsg, err := NewLroundMsg(bytes, basic)
+
+	if err != nil {
+		return nil, err
+	}
+	indexes, err := lround.getIndexByRefsBatch(bytes)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Println("Generated lround message at round ", rn, "and A-references ", indexes)
 	return lroundmsg, nil
 
 }
@@ -101,10 +117,10 @@ func (n *Node) paceToNextRound() (Message, error) {
 	n.handler.buildContextForRound(rn + 1)
 
 	//this removal is only used to save memory when the code is not finished.
-	if rn > 11 {
-		minustenRound := n.bc.GetRound(rn - 10)
-		minustenRound.rmvAllMsgsWhenCommitted()
-	}
+	// if rn > 11 {
+	// 	minustenRound := n.bc.GetRound(rn - 10)
+	// 	minustenRound.rmvAllMsgsWhenCommitted()
+	// }
 	msg, err := n.genTrans(rn + 1)
 	if err != nil {
 		return nil, err
@@ -114,7 +130,15 @@ func (n *Node) paceToNextRound() (Message, error) {
 	if err != nil {
 		return nil, err
 	}
-	go n.SendMsgToAll(1, msgbytes, sig)
+	if rn < 3 {
+
+		go n.SendMsgToAll(1, msgbytes, sig)
+	} else {
+		msgtype := (rn + 1) % 3
+		//fmt.Println(msgtype)
+		//fmt.Println((rn + 1) % 3)
+		go n.SendMsgToAll(uint8(msgtype), msgbytes, sig)
+	}
 	if rn%rPerwave == 1 && rn != 1 {
 		thresSigMsg := n.genThresMsg(rn + 1)
 
@@ -135,7 +159,7 @@ func (n *Node) paceToNextRound() (Message, error) {
 		return nil, err
 	}
 	n.bc.AddRound(newR)
-
+	msg.AfterAttach(n)
 	n.currentround.Add(1)
 
 	go n.handler.handleFutureVers(rn + 1)

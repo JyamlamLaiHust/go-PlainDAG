@@ -67,6 +67,28 @@ func (r *Round) getMsgByRefsBatch(hashes [][]byte) ([]Message, error) {
 	return msgs, nil
 }
 
+func getRefsByMsgsBatch(msgs []Message) ([][]byte, error) {
+
+	uniqueRefs := make(map[string]bool)
+	for _, m := range msgs {
+		refs := m.GetRefs()
+		for _, ref := range refs {
+			uniqueRefs[string(ref)] = true
+		}
+	}
+
+	trueRefs := make([][]byte, 0)
+
+	for k, v := range uniqueRefs {
+		if v {
+
+			trueRefs = append(trueRefs, []byte(k))
+		}
+	}
+	refs := trueRefs
+	return refs, nil
+}
+
 func (r *Round) checkCanAttach(m Message) ([][]byte, bool) {
 	r.messageLock.RLock()
 	defer r.messageLock.RUnlock()
@@ -136,7 +158,7 @@ func (r *Round) tryAttach(m Message, currentRound *Round, id int) {
 	r.checkMapLock.Unlock()
 	//currentRound.checkMapLock.Unlock()
 	var wg sync.WaitGroup
-
+	//fmt.Println(m.GetRN())
 	for _, ref := range missingrefs {
 		wg.Add(1)
 		rcopy := make([]byte, len(ref))
@@ -172,7 +194,7 @@ func (r *Round) tryAttach(m Message, currentRound *Round, id int) {
 	return
 }
 
-func (r Round) replicate(m Message, currentRound *Round, id int) {
+func (r *Round) replicate(m Message, currentRound *Round, id int) {
 
 	currentRound.checkMapLock.Lock()
 	missingrefs, canattach := r.checkCanAttach(m)
@@ -272,6 +294,7 @@ func (r *Round) retMsgsToRef() [][]byte {
 				continue
 			}
 			msgsByte = append(msgsByte, m.GetHash())
+			break
 		}
 
 	}
@@ -302,6 +325,51 @@ func (r *Round) rmvAllMsgsWhenCommitted() {
 	}
 }
 
+func (r *Round) getIndexByRefsBatch(refs [][]byte) ([]int, error) {
+	r.messageLock.RLock()
+	defer r.messageLock.RUnlock()
+	indexs := make([]int, 0)
+	refsmap := make(map[string]bool)
+	for _, ref := range refs {
+		refsmap[string(ref)] = true
+	}
+	for i, msg := range r.msgs {
+		for _, m := range msg {
+			if _, ok := refsmap[string(m.GetHash())]; ok {
+				indexs = append(indexs, i)
+				break
+			}
+		}
+	}
+
+	return indexs, nil
+}
+
+func (r *Round) genArefs(msg Message, mround *Round) ([][]byte, error) {
+	refs := msg.GetRefs()
+	arefs := make([][]byte, 0)
+	msgs, err := mround.getMsgByRefsBatch(refs)
+	if err != nil {
+		return nil, err
+	}
+	refs, err = getRefsByMsgsBatch(msgs)
+	if err != nil {
+		return nil, err
+	}
+	targetmsgs, err := r.getMsgByRefsBatch(refs)
+	if err != nil {
+		return nil, err
+	}
+
+	uniqueMsgs := make(map[string]bool)
+	for _, m := range targetmsgs {
+		if _, ok := uniqueMsgs[string(m.GetSource())]; !ok {
+			arefs = append(arefs, m.GetHash())
+			uniqueMsgs[string(m.GetSource())] = true
+		}
+	}
+	return arefs, nil
+}
 func newRound(rn int, m Message, id int) (*Round, error) {
 	if m.GetRN() != rn {
 		return nil, errors.New("round number not match")
