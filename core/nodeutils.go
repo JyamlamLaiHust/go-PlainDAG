@@ -1,8 +1,8 @@
 package core
 
 import (
-	"github.com/PlainDAG/go-PlainDAG/config"
-	"github.com/PlainDAG/go-PlainDAG/p2p"
+	"github.com/JyamlamLaiHUST/go-PlainDAG/config"
+	"github.com/JyamlamLaiHUST/go-PlainDAG/p2p"
 	"github.com/libp2p/go-libp2p/core/crypto"
 )
 
