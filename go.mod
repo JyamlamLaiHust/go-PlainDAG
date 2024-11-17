@@ -1,4 +1,4 @@
-module github.com/PlainDAG/go-PlainDAG
+module github.com/JyamlamLaiHUST/go-PlainDAG
 
 go 1.19
 
