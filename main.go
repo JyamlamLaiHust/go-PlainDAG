@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/PlainDAG/go-PlainDAG/core"
+	"github.com/JyamlamLaiHUST/go-PlainDAG/core"
 )
 
 func main() {
